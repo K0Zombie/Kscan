@@ -17,6 +17,12 @@ public static class CommandLauncher
             return;
         }
 
+        if (OperatingSystem.IsWindows() && WindowsUnelevatedLauncher.IsElevated())
+        {
+            WindowsUnelevatedLauncher.Start(binding.Command, binding.Arguments, ResolveWorkingDirectory(binding));
+            return;
+        }
+
         var start = new ProcessStartInfo
         {
             FileName = binding.Command,

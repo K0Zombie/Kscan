@@ -5,6 +5,30 @@ namespace Kscan.Platform.Tests;
 public sealed class CommandLauncherTests
 {
     [Fact]
+    public async Task Normal_command_runs_without_an_administrator_token()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        var output = Path.Combine(Path.GetTempPath(), "kscan-token-" + Guid.NewGuid().ToString("N") + ".txt");
+        var script = "$identity=[Security.Principal.WindowsIdentity]::GetCurrent();" +
+            "$principal=[Security.Principal.WindowsPrincipal]::new($identity);" +
+            "[IO.File]::WriteAllText('" + output.Replace("'", "''") + "'," +
+            "$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator).ToString())";
+        try
+        {
+            CommandLauncher.Start(new HotkeyBinding(HotkeyActionIds.RunCommand, "F8")
+            {
+                Command = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe"),
+                Arguments = "-NoProfile -NonInteractive -EncodedCommand " + Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(script)),
+                RunAsAdmin = false,
+            });
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            while (!File.Exists(output) || new FileInfo(output).Length == 0) await Task.Delay(50, timeout.Token);
+            Assert.Equal("False", await File.ReadAllTextAsync(output));
+        }
+        finally { if (File.Exists(output)) File.Delete(output); }
+    }
+
+    [Fact]
     public async Task Starts_a_program_with_quoted_arguments_and_working_directory()
     {
         var directory = Path.Combine(Path.GetTempPath(), "kscan command " + Guid.NewGuid().ToString("N"));
