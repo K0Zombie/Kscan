@@ -1,0 +1,45 @@
+<Project>
+
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <!--
+      全解决方案统一的版本号：`kscan version`、pacman 包的 pkgver、.desktop 里的版本都对着它。
+      发版时只改这一处（packaging/arch/PKGBUILD 的 pkgver 也要一起改）。
+    -->
+    <Version>0.1.15</Version>
+  </PropertyGroup>
+
+  <!--
+    SkiaSharp 随包附带 native 调试符号（libSkiaSharp.pdb，单个 90-100MB，
+    且 osx/win-x64/win-x86/win-arm64 各一份），开发与发布都用不到，
+    却会让每次构建多复制数百 MB。这里把它们从输出中剔除。
+  -->
+  <Target Name="RemoveNativeDebugSymbolsFromOutput" AfterTargets="ResolveReferences">
+    <ItemGroup>
+      <ReferenceCopyLocalPaths
+        Remove="@(ReferenceCopyLocalPaths)"
+        Condition="$([System.String]::Copy('%(ReferenceCopyLocalPaths.Identity)').EndsWith('.pdb')) And $([System.String]::Copy('%(ReferenceCopyLocalPaths.Identity)').Contains('native'))" />
+    </ItemGroup>
+  </Target>
+
+  <!--
+    发布目录里的 PDB 一律清掉：单文件发布用不到调试符号，而 SkiaSharp 的 native pdb 单个近 100MB。
+    放在 AfterTargets="Publish"（而不是改 ResolvedFileToPublish），是因为 publish 的复制流程有多条路径
+    （ResolvedFileToPublish / ReferenceCopyLocalPaths / runtime 资产），只改其中一个 item 实测会漏。
+    需要保留调试符号时：dotnet publish ... -p:StripPdbsFromPublish=false
+  -->
+  <PropertyGroup>
+    <StripPdbsFromPublish Condition="'$(StripPdbsFromPublish)' == ''">true</StripPdbsFromPublish>
+  </PropertyGroup>
+
+  <Target Name="RemovePdbsFromPublishOutput" AfterTargets="Publish" Condition="'$(StripPdbsFromPublish)' == 'true'">
+    <ItemGroup>
+      <PublishPdbsToDelete Include="$(PublishDir)**\*.pdb" />
+    </ItemGroup>
+    <Delete Files="@(PublishPdbsToDelete)" ContinueOnError="true" />
+  </Target>
+
+</Project>

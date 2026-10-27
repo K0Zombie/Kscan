@@ -1,0 +1,109 @@
+using Avalonia;
+using Avalonia.Input.Platform;
+using Avalonia.Media.Imaging;
+using Kscan.App.Views;
+
+namespace Kscan.App.Services;
+
+/// <summary>
+/// 进程内的贴图管理：谁开着、有几张、关掉全部、以及把穿透状态收回来。
+/// 贴图窗口自己关闭时也会从这里摘掉。
+/// </summary>
+public sealed class PinManager
+{
+    private readonly List<PinWindow> _windows = [];
+
+    public static PinManager Current { get; } = new();
+
+    /// <summary>当前贴图数量。</summary>
+    public int Count => _windows.Count;
+
+    /// <summary>数量变化（新贴一张 / 关掉一张 / 关掉全部）。</summary>
+    public event EventHandler? Changed;
+
+    /// <summary>贴一张图到屏幕上。</summary>
+    /// <param name="ownsImage">
+    /// 这张位图是否由贴图窗口负责释放。剪贴板读出来的位图是"我们的"（要释放），
+    /// 识别页的预览图是别人（ViewModel）持有的（不能释放）。
+    /// </param>
+    /// <param name="targetRegion">
+    /// 贴到屏幕的哪块区域（物理像素）；<c>null</c> = 屏幕中央。用于"截图贴回原位"。
+    /// </param>
+    public PinWindow Pin(
+        Bitmap image,
+        string? sourceName = null,
+        bool ownsImage = false,
+        PixelRect? targetRegion = null)
+    {
+        var window = new PinWindow();
+        window.SetImage(image, sourceName, ownsImage);
+        window.SetPlacement(targetRegion);
+
+        window.Closed += (_, _) =>
+        {
+            _windows.Remove(window);
+            RaiseChanged();
+        };
+
+        _windows.Add(window);
+
+        // Show() 之后才有屏幕信息与平台句柄，窗口自己在 OnOpened 里把尺寸/位置摆正
+        window.Show();
+        RaiseChanged();
+
+        return window;
+    }
+
+    /// <summary>优先贴剪贴板图片，否则把文本按 Markdown 渲染；两者都没有时返回 <c>false</c>。</summary>
+    public async Task<bool> PinFromClipboardAsync()
+    {
+        if (TopLevelAccessor.GetClipboard() is not { } clipboard)
+        {
+            return false;
+        }
+
+        var bitmap = await clipboard.TryGetBitmapAsync();
+        if (bitmap is null)
+        {
+            var text = await clipboard.TryGetTextAsync();
+            if (string.IsNullOrWhiteSpace(text)) return false;
+            Pin(await MarkdownPinRenderer.RenderAsync(text), "clipboard-markdown.png", ownsImage: true);
+            return true;
+        }
+
+        // 这张位图是从剪贴板读出来的、归调用方所有：让贴图窗口在关闭时释放它。
+        // 位置：剪贴板里若还是"刚截的那张图"就贴回截图原位，否则（外部图片等）屏幕中央。
+        Pin(bitmap, "clipboard.png", ownsImage: true, targetRegion: CaptureMemory.RegionIfCurrent());
+        return true;
+    }
+
+    /// <summary>关掉所有贴图。</summary>
+    public void CloseAll()
+    {
+        foreach (var window in _windows.ToArray())
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>
+    /// 把所有贴图的穿透收回来。开了穿透的贴图点不到自己，必须有这么一条"从外面救回来"的通道。
+    /// 返回被恢复的张数。
+    /// </summary>
+    public int RestoreInteraction()
+    {
+        var restored = 0;
+
+        foreach (var window in _windows.ToArray())
+        {
+            if (window.IsClickThrough && window.SetClickThrough(false))
+            {
+                restored++;
+            }
+        }
+
+        return restored;
+    }
+
+    private void RaiseChanged() => Changed?.Invoke(this, EventArgs.Empty);
+}

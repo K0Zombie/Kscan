@@ -1,0 +1,180 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Kscan.App.Controls"
+             xmlns:vm="clr-namespace:Kscan.App.ViewModels"
+             x:Class="Kscan.App.Views.ScanPage"
+             x:DataType="vm:ScanViewModel">
+
+    <Grid Margin="16" RowDefinitions="Auto,*,Auto">
+
+        <!-- 工具栏 -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
+            <Button Content="{DynamicResource Str.Scan.OpenFile}" Command="{Binding OpenFilesCommand}" />
+            <Button Content="{DynamicResource Str.Scan.FromClipboard}" Command="{Binding FromClipboardCommand}" />
+            <Button Content="{DynamicResource Str.Scan.CaptureRegion}" Command="{Binding CaptureRegionCommand}" />
+            <Button Content="{DynamicResource Str.Hotkey.Action.ScrollCapture}" Command="{Binding ScrollCaptureCommand}" />
+            <Button Content="{DynamicResource Str.Pin.PinImage}" Command="{Binding PinImageCommand}" />
+            <Button Content="{DynamicResource Str.Scan.Preprocess}"
+                    Command="{Binding TogglePreprocessCommand}"
+                    IsEnabled="{Binding CanPreprocess}" />
+            <TextBlock Text="{Binding SourceName}"
+                       VerticalAlignment="Center"
+                       Margin="8,0,0,0"
+                       Opacity="0.6" />
+        </StackPanel>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,*" Margin="0,12,0,0">
+
+            <!--
+                左：预览区。
+                平时是"原图 + 多码高亮"；打开「手动处理图像」后只显示**当前预处理层**（不再显示原图），
+                这样加一步/切一层能立刻在图上看出来。
+            -->
+            <Border Grid.Column="0"
+                    Background="#26808080"
+                    CornerRadius="{DynamicResource KscanCornerRadius}"
+                    Padding="6"
+                    MinHeight="200">
+                <Grid>
+                    <controls:ResultOverlay Source="{Binding Preview}"
+                                            ImageWidth="{Binding PreviewWidth}"
+                                            ImageHeight="{Binding PreviewHeight}"
+                                            Items="{Binding Results}"
+                                            HighlightIndex="{Binding HighlightedIndex, Mode=TwoWay}"
+                                            CopyCommand="{Binding CopyCommand}"
+                                            IsVisible="{Binding !IsPreprocessOpen}" />
+                    <Image Source="{Binding LevelPreview}"
+                           Stretch="Uniform"
+                           IsVisible="{Binding IsPreprocessOpen}" />
+                </Grid>
+            </Border>
+
+            <!-- 右：平时是结果列表；手动处理时被调整面板占位（用户要求放在"原来生成结果的地方"） -->
+            <ScrollViewer Grid.Column="1" Margin="12,0,0,0" IsVisible="{Binding !IsPreprocessOpen}">
+                <ItemsControl x:Name="ResultsList" ItemsSource="{Binding Results}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ResultItem">
+                            <Border Margin="0,0,0,8"
+                                    Padding="12"
+                                    CornerRadius="{DynamicResource KscanCornerRadius}"
+                                    Background="#26808080"
+                                    BorderThickness="0"
+                                    BorderBrush="Transparent"
+                                    PointerEntered="OnCardPointerEntered"
+                                    PointerExited="OnCardPointerExited">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="{Binding KindLabel}"
+                                               FontWeight="SemiBold"
+                                               Foreground="#4C8BF5" />
+                                    <TextBlock Text="{Binding Text}"
+                                               TextWrapping="Wrap"
+                                               FontFamily="Consolas,Menlo,monospace" />
+                                    <TextBlock Text="{Binding FormatLabel}"
+                                               FontSize="11"
+                                               Opacity="0.5" />
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button Content="{DynamicResource Str.Scan.Copy}"
+                                                Command="{Binding $parent[UserControl].DataContext.CopyCommand}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Content="{Binding ActionLabel}"
+                                                IsVisible="{Binding HasAction}"
+                                                Command="{Binding $parent[UserControl].DataContext.RunActionCommand}"
+                                                CommandParameter="{Binding}" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding ActionError}"
+                                               IsVisible="{Binding ActionError, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                               Foreground="#D32F2F"
+                                               TextWrapping="Wrap"
+                                               FontSize="12" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <!--
+                手动处理图像（任务书 §4）：逐层看预处理结果、自己组合步骤与参数。
+                键位按 D21：J/K(↑/↓) 切层、H/L(←/→) 调参数、PgUp/PgDn 跳首尾。
+            -->
+            <Border Grid.Column="1"
+                    Margin="12,0,0,0"
+                    Padding="12"
+                    CornerRadius="{DynamicResource KscanCornerRadius}"
+                    Background="#26808080"
+                    IsVisible="{Binding IsPreprocessOpen}">
+                <Grid RowDefinitions="Auto,*,Auto" RowSpacing="8">
+
+                    <StackPanel Grid.Row="0" Spacing="4">
+                        <TextBlock Text="{Binding PreprocessHint}"
+                                   FontFamily="Consolas,Menlo,monospace"
+                                   FontSize="12"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="{DynamicResource Str.Scan.PreprocessKeys}"
+                                   FontSize="11"
+                                   Opacity="0.6"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <!-- 层列表：左图跟着这里的选中项切换 -->
+                    <ListBox Grid.Row="1"
+                             x:Name="LevelList"
+                             FontSize="12"
+                             ItemsSource="{Binding PreprocessLevels}"
+                             SelectedIndex="{Binding PreprocessLevelIndex, Mode=OneWay}"
+                             SelectionChanged="OnLevelSelectionChanged" />
+
+                    <StackPanel Grid.Row="2" Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Button Content="{DynamicResource Str.Scan.PreprocessRescan}"
+                                    Command="{Binding RescanCurrentLevelCommand}"
+                                    FontSize="12" />
+                            <Button Content="{DynamicResource Str.Scan.PreprocessSave}"
+                                    Command="{Binding SaveMethodCommand}"
+                                    FontSize="12" />
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="{DynamicResource Str.Scan.PreprocessMethods}"
+                                       VerticalAlignment="Center"
+                                       FontSize="11"
+                                       Opacity="0.6" />
+                            <ComboBox x:Name="MethodBox"
+                                      MinWidth="130"
+                                      FontSize="12"
+                                      ItemsSource="{Binding Methods}"
+                                      SelectedItem="{Binding SelectedMethod}" />
+                            <Button Content="{DynamicResource Str.Scan.PreprocessLoad}"
+                                    Command="{Binding LoadMethodCommand}"
+                                    CommandParameter="{Binding SelectedMethod}"
+                                    FontSize="12" />
+                        </StackPanel>
+
+                        <TextBlock Text="{DynamicResource Str.Scan.PreprocessAdd}"
+                                   FontSize="11"
+                                   Opacity="0.6" />
+                        <WrapPanel Orientation="Horizontal">
+                            <Button Content="+decolor" Margin="0,0,6,6" FontSize="11" Command="{Binding AddPreprocessStepCommand}" CommandParameter="Decolor" />
+                            <Button Content="+contrast" Margin="0,0,6,6" FontSize="11" Command="{Binding AddPreprocessStepCommand}" CommandParameter="Contrast" />
+                            <Button Content="+median" Margin="0,0,6,6" FontSize="11" Command="{Binding AddPreprocessStepCommand}" CommandParameter="Median" />
+                            <Button Content="+adaptive" Margin="0,0,6,6" FontSize="11" Command="{Binding AddPreprocessStepCommand}" CommandParameter="Adaptive" />
+                        </WrapPanel>
+                        <WrapPanel Orientation="Horizontal">
+                            <Button Content="{DynamicResource Str.Scan.PreprocessRemove}" Margin="0,0,6,6" FontSize="11" Command="{Binding RemovePreprocessStepCommand}" />
+                            <Button Content="{DynamicResource Str.Scan.PreprocessUp}" Margin="0,0,6,6" FontSize="11" Command="{Binding MovePreprocessStepUpCommand}" />
+                            <Button Content="{DynamicResource Str.Scan.PreprocessDown}" Margin="0,0,6,6" FontSize="11" Command="{Binding MovePreprocessStepDownCommand}" />
+                            <Button Content="{DynamicResource Str.Scan.PreprocessClose}" Margin="0,0,6,6" FontSize="11" Command="{Binding ClosePreprocessCommand}" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- 状态栏 -->
+        <TextBlock Grid.Row="2"
+                   Margin="0,10,0,0"
+                   Text="{Binding StatusText}"
+                   TextWrapping="Wrap"
+                   Opacity="0.7" />
+    </Grid>
+</UserControl>

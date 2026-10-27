@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Kscan
+Name[zh_CN]=Kscan 扫码器
+GenericName=QR & Barcode Scanner
+GenericName[zh_CN]=二维码/条码工具
+Comment=Scan and generate QR codes and barcodes
+Comment[zh_CN]=扫描与生成二维码/条码
+Exec=kscan-gui
+Icon=kscan
+Terminal=false
+Categories=Utility;Graphics;
+Keywords=qr;qrcode;barcode;scan;code;二维码;条码;扫码;
+StartupNotify=true
+StartupWMClass=kscan-gui

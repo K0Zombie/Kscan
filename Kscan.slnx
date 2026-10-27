@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/CLI/">
+    <Project Path="CLI/Kscan.Cli.csproj" />
+  </Folder>
+  <Folder Name="/GUI/">
+    <Project Path="GUI/Kscan.App.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Kscan.Core/Kscan.Core.csproj" />
+    <Project Path="src/Kscan.Platform/Kscan.Platform.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Kscan.App.Tests/Kscan.App.Tests.csproj" />
+    <Project Path="tests/Kscan.Core.Tests/Kscan.Core.Tests.csproj" />
+    <Project Path="tests/Kscan.Platform.Tests/Kscan.Platform.Tests.csproj" />
+  </Folder>
+</Solution>

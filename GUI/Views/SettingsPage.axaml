@@ -1,0 +1,939 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Kscan.App.ViewModels"
+             x:Class="Kscan.App.Views.SettingsPage"
+             x:DataType="vm:SettingsViewModel">
+
+    <UserControl.Styles>
+        <!--
+            区块卡片：每个设置区块一个。以前只有「平台能力」带背景、其余是裸的，
+            在深色主题下看起来就像一堆散落的文字。
+        -->
+        <Style Selector="Border.section">
+            <Setter Property="Background" Value="{DynamicResource KscanPanelBrush}" />
+            <Setter Property="CornerRadius" Value="{DynamicResource KscanCornerRadius}" />
+            <Setter Property="Padding" Value="14" />
+        </Style>
+
+        <Style Selector="TextBlock.sectionTitle">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style Selector="TextBlock.hint">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Opacity" Value="0.55" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style Selector="TextBlock.key">
+            <Setter Property="Opacity" Value="0.55" />
+            <Setter Property="Margin" Value="0,0,10,4" />
+        </Style>
+
+        <Style Selector="TextBlock.value">
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+
+        <!--
+            左侧导航项：用 RadioButton 而不是 ToggleButton —— 同一时间只能有一个子页，
+            RadioButton 自带互斥语义（GroupName），并且可以整行点击。
+            模板去掉圆点、整行高亮，看起来像导航列表而不是一排按钮。
+        -->
+        <Style Selector="RadioButton.nav">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Left"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="RadioButton.nav:pointerover">
+            <Setter Property="Background" Value="{DynamicResource KscanBorderBrush}" />
+        </Style>
+
+        <Style Selector="RadioButton.nav:checked">
+            <Setter Property="Background" Value="{DynamicResource KscanSelectionBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid Margin="16" ColumnDefinitions="150,*">
+            <!-- 设置子页导航（左侧） -->
+            <Border BorderBrush="{DynamicResource KscanBorderBrush}"
+                    BorderThickness="0,0,1,0"
+                    Padding="0,0,12,0"
+                    VerticalAlignment="Stretch">
+                <StackPanel Spacing="2">
+                    <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.General}" Command="{Binding SelectSectionCommand}" CommandParameter="general" IsChecked="{Binding SectionGeneral, Mode=OneWay}" />
+                    <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.Theme}" Command="{Binding SelectSectionCommand}" CommandParameter="appearance" IsChecked="{Binding SectionAppearance, Mode=OneWay}" />
+                    <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.Hotkey}" Command="{Binding SelectSectionCommand}" CommandParameter="hotkey" IsChecked="{Binding SectionHotkey, Mode=OneWay}" />
+                    <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.Commands}" Command="{Binding SelectSectionCommand}" CommandParameter="commands" IsChecked="{Binding SectionCommands, Mode=OneWay}" />
+                    <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.Recognition}" Command="{Binding SelectSectionCommand}" CommandParameter="recognition" IsChecked="{Binding SectionRecognition, Mode=OneWay}" />
+                    <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.PinSection}" Command="{Binding SelectSectionCommand}" CommandParameter="pin" IsChecked="{Binding SectionPin, Mode=OneWay}" />
+                    <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.MultiScreen}" Command="{Binding SelectSectionCommand}" CommandParameter="multiscreen" IsChecked="{Binding SectionMultiScreen, Mode=OneWay}" />
+            <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.AnnotationSection}" Command="{Binding SelectSectionCommand}" CommandParameter="annotation" IsChecked="{Binding SectionAnnotation, Mode=OneWay}" />
+                    <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.Interface}" Command="{Binding SelectSectionCommand}" CommandParameter="interface" IsChecked="{Binding SectionInterface, Mode=OneWay}" />
+                    <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.Permissions}" Command="{Binding SelectSectionCommand}" CommandParameter="permissions" IsChecked="{Binding SectionPermissions, Mode=OneWay}" IsVisible="{Binding ElevationSupported}" />
+                </StackPanel>
+            </Border>
+
+            <ScrollViewer Grid.Column="1" Margin="16,0,0,0">
+                <StackPanel Spacing="12" MaxWidth="780" HorizontalAlignment="Left">
+
+            <!-- 平台能力 -->
+            <Border Classes="section" IsVisible="{Binding SectionGeneral}">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="sectionTitle" Text="{DynamicResource Str.Settings.Platform}" />
+                    <TextBlock Classes="hint"
+                               Text="{Binding SessionHint}"
+                               IsVisible="{Binding SessionHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Classes="key" Text="{DynamicResource Str.Settings.CaptureLabel}" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" Classes="value" Text="{Binding ScreenCaptureDescription}" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Classes="key" Text="{DynamicResource Str.Settings.NotificationLabel}" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Classes="value" Text="{Binding NotificationDescription}" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Classes="key" Text="{DynamicResource Str.Settings.AutoStartLabel}" />
+                        <TextBlock Grid.Row="2" Grid.Column="1" Classes="value" Text="{Binding AutoStartDescription}" />
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Classes="key" Text="{DynamicResource Str.Settings.ClipboardLabel}" />
+                        <TextBlock Grid.Row="3" Grid.Column="1" Classes="value" Text="{Binding ClipboardWatchDescription}" />
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Classes="key" Margin="0,0,10,0" Text="{DynamicResource Str.Settings.HotkeyLabel}" />
+                        <TextBlock Grid.Row="4" Grid.Column="1" Classes="value" Margin="0" Text="{Binding Hotkey.Description}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- 通用 -->
+            <Border Classes="section" IsVisible="{Binding SectionGeneral}">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="sectionTitle" Text="{DynamicResource Str.Settings.General}" />
+
+                    <Grid ColumnDefinitions="Auto,*">
+                        <ToggleSwitch Grid.Column="0"
+                                      VerticalAlignment="Top"
+                                      IsChecked="{Binding AutoStart}"
+                                      IsEnabled="{Binding AutoStartSupported}"
+                                      OnContent="{DynamicResource Str.Settings.On}"
+                                      OffContent="{DynamicResource Str.Settings.Off}" />
+                        <StackPanel Grid.Column="1" Margin="10,2,0,0" Spacing="2">
+                            <TextBlock Text="{DynamicResource Str.Settings.AutoStartToggle}" />
+                            <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.AutoStartNote}" />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- 剪贴板保存文件夹（热键「保存剪贴板内容到文件夹」的目标位置） -->
+            <Border Classes="section" IsVisible="{Binding SectionPin}">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="sectionTitle" Text="{DynamicResource Str.Settings.ClipboardSaveFolder}" />
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.ClipboardSaveFolderNote}" />
+
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding ClipboardSaveFolder}"
+                                 PlaceholderText="{DynamicResource Str.Settings.ClipboardSaveFolderPlaceholder}" />
+                        <Button Grid.Column="1"
+                                Margin="8,0,0,0"
+                                Content="{DynamicResource Str.Settings.Browse}"
+                                Command="{Binding BrowseClipboardSaveFolderCommand}" />
+                        <Button Grid.Column="2"
+                                Margin="8,0,0,0"
+                                Content="{DynamicResource Str.Settings.ClipboardSaveFolderOpen}"
+                                Command="{Binding OpenClipboardSaveFolderCommand}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- 贴图：从剪贴板到屏幕这一段的功能都放这里 -->
+            <Border Classes="section" IsVisible="{Binding SectionPin}">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="sectionTitle" Text="{DynamicResource Str.Settings.PinSection}" />
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.PinSectionNote}" TextWrapping="Wrap" />
+
+                    <Grid ColumnDefinitions="Auto,*">
+                        <ToggleSwitch Grid.Column="0"
+                                      VerticalAlignment="Top"
+                                      IsChecked="{Binding PinTopmostByDefault}"
+                                      OnContent="{DynamicResource Str.Settings.On}"
+                                      OffContent="{DynamicResource Str.Settings.Off}" />
+                        <StackPanel Grid.Column="1" Margin="10,2,0,0" Spacing="2">
+                            <TextBlock Text="{DynamicResource Str.Settings.PinTopmostByDefault}" />
+                            <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.PinTopmostByDefaultNote}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="Auto,*">
+                        <ComboBox Grid.Column="0"
+                                  MinWidth="90"
+                                  VerticalAlignment="Top"
+                                  ItemsSource="{Binding AnimatedFreezeKeyOptions}"
+                                  SelectedItem="{Binding AnimatedFreezeKey}" />
+                        <StackPanel Grid.Column="1" Margin="10,2,0,0" Spacing="2">
+                            <TextBlock Text="{DynamicResource Str.Settings.AnimatedFreezeKey}" />
+                            <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.AnimatedFreezeKeyNote}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="Auto,*">
+                        <ToggleSwitch Grid.Column="0"
+                                      VerticalAlignment="Top"
+                                      IsChecked="{Binding WatchClipboard}"
+                                      IsEnabled="{Binding ClipboardWatchSupported}"
+                                      OnContent="{DynamicResource Str.Settings.On}"
+                                      OffContent="{DynamicResource Str.Settings.Off}" />
+                        <StackPanel Grid.Column="1" Margin="10,2,0,0" Spacing="2">
+                            <TextBlock Text="{DynamicResource Str.Settings.WatchClipboardToggle}" />
+                            <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.WatchClipboardNote}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="Auto,*">
+                        <ToggleSwitch Grid.Column="0"
+                                      VerticalAlignment="Top"
+                                      IsChecked="{Binding PinRemoteImages}"
+                                      OnContent="{DynamicResource Str.Settings.On}"
+                                      OffContent="{DynamicResource Str.Settings.Off}" />
+                        <StackPanel Grid.Column="1" Margin="10,2,0,0" Spacing="2">
+                            <TextBlock Text="{DynamicResource Str.Settings.PinRemoteImages}" />
+                            <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.PinRemoteImagesNote}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.PinHotkeyHint}" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <!-- 多屏：跨屏框选 -->
+            <Border Classes="section" IsVisible="{Binding SectionMultiScreen}">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="sectionTitle" Text="{DynamicResource Str.Settings.MultiScreen}" />
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.MultiScreenNote}" TextWrapping="Wrap" />
+
+                    <Grid ColumnDefinitions="Auto,*">
+                        <ToggleSwitch Grid.Column="0"
+                                      VerticalAlignment="Top"
+                                      IsChecked="{Binding CaptureAcrossScreens}"
+                                      OnContent="{DynamicResource Str.Settings.On}"
+                                      OffContent="{DynamicResource Str.Settings.Off}" />
+                        <StackPanel Grid.Column="1" Margin="10,2,0,0" Spacing="2">
+                            <TextBlock Text="{DynamicResource Str.Settings.CaptureAcrossScreens}" />
+                            <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.CaptureAcrossScreensNote}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="150,*">
+                        <TextBlock Grid.Column="0"
+                                   VerticalAlignment="Center"
+                                   Text="{DynamicResource Str.Settings.MultiScreenGapFill}" />
+                        <ComboBox Grid.Column="1"
+                                  HorizontalAlignment="Left"
+                                  MinWidth="160"
+                                  ItemsSource="{Binding MultiScreenGapFillOptions}"
+                                  SelectedItem="{Binding MultiScreenGapFill}" />
+                    </Grid>
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.MultiScreenGapFillNote}" TextWrapping="Wrap" />
+
+                    <Grid ColumnDefinitions="Auto,*">
+                        <ToggleSwitch Grid.Column="0"
+                                      VerticalAlignment="Top"
+                                      IsChecked="{Binding CaptureAcrossScreensWindowDetection}"
+                                      OnContent="{DynamicResource Str.Settings.On}"
+                                      OffContent="{DynamicResource Str.Settings.Off}" />
+                        <StackPanel Grid.Column="1" Margin="10,2,0,0" Spacing="2">
+                            <TextBlock Text="{DynamicResource Str.Settings.MultiScreenWindowDetection}" />
+                            <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.MultiScreenWindowDetectionNote}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.CaptureAcrossScreensDetectNote}" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <!-- 标注：默认线宽 / 默认颜色 -->
+            <Border Classes="section" IsVisible="{Binding SectionAnnotation}">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="sectionTitle" Text="{DynamicResource Str.Settings.AnnotationSection}" />
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.AnnotationNote}" TextWrapping="Wrap" />
+
+                    <Grid ColumnDefinitions="150,*">
+                        <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Str.Settings.AnnotationThickness}" />
+                        <ComboBox Grid.Column="1"
+                                  HorizontalAlignment="Left"
+                                  MinWidth="120"
+                                  ItemsSource="{Binding AnnotationThicknessOptions}"
+                                  SelectedItem="{Binding AnnotationThickness}" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="150,*">
+                        <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="{DynamicResource Str.Settings.AnnotationColor}" />
+                        <ComboBox Grid.Column="1"
+                                  HorizontalAlignment="Left"
+                                  MinWidth="160"
+                                  ItemsSource="{Binding AnnotationColorOptions}"
+                                  SelectedItem="{Binding AnnotationColor}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- 权限与管理员窗口 -->
+            <Border Classes="section" IsVisible="{Binding SectionPermissions}">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="sectionTitle" Text="{DynamicResource Str.Settings.Elevation}" />
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.ElevationNote}" />
+                    <TextBlock Text="{Binding ElevationStatus}" TextWrapping="Wrap" />
+                    <Button Content="{DynamicResource Str.Settings.ElevationRestart}"
+                            Command="{Binding RestartElevatedCommand}"
+                            IsEnabled="{Binding !IsElevated}"
+                            HorizontalAlignment="Left" />
+
+                    <CheckBox IsChecked="{Binding ElevatedAutoStart}"
+                              IsVisible="{Binding ElevatedAutoStartSupported}"
+                              Content="{DynamicResource Str.Settings.ElevatedAutoStart}" />
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.ElevatedAutoStartNote}" />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="section" IsVisible="{Binding SectionGeneral}">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="sectionTitle" Text="{DynamicResource Str.Settings.Background}" />
+                    <ToggleSwitch IsChecked="{Binding StartSilently}" IsEnabled="{Binding TraySupported}"
+                                  Content="{DynamicResource Str.Settings.StartSilently}" />
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.StartSilentlyNote}" />
+                    <ToggleSwitch IsChecked="{Binding MinimizeToTray}" IsEnabled="{Binding TraySupported}"
+                                  Content="{DynamicResource Str.Settings.MinimizeToTray}" />
+                    <ToggleSwitch IsChecked="{Binding CloseToTray}" IsEnabled="{Binding TraySupported}"
+                                  Content="{DynamicResource Str.Settings.CloseToTray}" />
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.TrayNote}" />
+                    <Button Content="{DynamicResource Str.Tray.Exit}" Command="{Binding ExitApplicationCommand}" />
+                </StackPanel>
+            </Border>
+
+            <!-- 全局热键 -->
+            <Border Classes="section" IsVisible="{Binding SectionHotkey}">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="sectionTitle" Text="{DynamicResource Str.Settings.Hotkey}" />
+
+                    <!-- 一行 = 一条「动作 + 键」绑定；可增可删，同一个动作可以绑多个键 -->
+                    <ItemsControl ItemsSource="{Binding Hotkey.Rows}" IsEnabled="{Binding Hotkey.IsSupported}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:HotkeyRowViewModel">
+                                <Grid ColumnDefinitions="170,*,Auto,Auto" RowDefinitions="Auto,Auto,Auto" Margin="0,0,0,6">
+                                    <ComboBox Grid.Column="0"
+                                              HorizontalAlignment="Stretch"
+                                              ToolTip.Tip="{Binding Label}"
+                                              ItemsSource="{Binding Actions}"
+                                              SelectedItem="{Binding SelectedAction}">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:HotkeyActionOption">
+                                                <TextBlock Text="{Binding DisplayName}" />
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+
+                                    <TextBox Grid.Column="1"
+                                             Margin="8,0,0,0"
+                                             Text="{Binding Text}"
+                                             PlaceholderText="{DynamicResource Str.Settings.HotkeyPlaceholder}" />
+
+                                    <Button Grid.Column="2"
+                                            Margin="8,0,0,0"
+                                            Padding="10,2"
+                                            Content="{DynamicResource Str.Settings.HotkeyCapture}"
+                                            ToolTip.Tip="{DynamicResource Str.Settings.HotkeyCaptureTip}"
+                                            Command="{Binding CaptureCommand}" />
+
+                                    <Button Grid.Column="3"
+                                            Margin="8,0,0,0"
+                                            Padding="10,2"
+                                            Content="✕"
+                                            ToolTip.Tip="{DynamicResource Str.Settings.HotkeyRemove}"
+                                            Command="{Binding RemoveCommand}" />
+
+                                    <TextBlock Grid.Column="0"
+                                               Grid.ColumnSpan="4"
+                                               Grid.Row="1"
+                                               Margin="10,4,0,0"
+                                               Text="{DynamicResource Str.Settings.HotkeyRisky}"
+                                               Foreground="{DynamicResource KscanWarningBrush}"
+                                               FontSize="12"
+                                               VerticalAlignment="Center"
+                                               TextWrapping="Wrap"
+                                               IsVisible="{Binding IsRisky}" />
+                                    <StackPanel Grid.Row="2" Grid.ColumnSpan="4" Spacing="6" Margin="0,6,0,8" IsVisible="{Binding IsCommand}">
+                                        <TextBox Text="{Binding Command}" PlaceholderText="{DynamicResource Str.Settings.CommandProgram}" />
+                                        <TextBox Text="{Binding Arguments}" PlaceholderText="{DynamicResource Str.Settings.CommandArguments}" />
+                                        <TextBox Text="{Binding WorkingDirectory}" PlaceholderText="{DynamicResource Str.Settings.CommandDirectory}" />
+                                        <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.CommandNote}" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="{DynamicResource Str.Settings.HotkeyAdd}"
+                                Command="{Binding Hotkey.AddRowCommand}"
+                                IsEnabled="{Binding Hotkey.IsSupported}" />
+                        <Button Content="{DynamicResource Str.Settings.HotkeyApply}"
+                                Command="{Binding Hotkey.ApplyCommand}"
+                                IsEnabled="{Binding Hotkey.IsSupported}" />
+                        <Button Content="{DynamicResource Str.Settings.HotkeyClear}"
+                                Command="{Binding Hotkey.ClearCommand}"
+                                IsEnabled="{Binding Hotkey.IsSupported}" />
+                    </StackPanel>
+
+                    <TextBlock Classes="hint" Text="{Binding Hotkey.ActiveText}" />
+                    <TextBlock Classes="hint"
+                               Text="{Binding Hotkey.Status}"
+                               IsVisible="{Binding Hotkey.Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.HotkeyNote}" />
+                </StackPanel>
+            </Border>
+
+            <!-- 执行命令（user/cmd） -->
+            <Border Classes="section" IsVisible="{Binding SectionCommands}">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="sectionTitle" Text="{DynamicResource Str.Settings.Commands}" />
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.CommandsNote}" />
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <ComboBox Grid.Column="0"
+                                  HorizontalAlignment="Stretch"
+                                  ItemsSource="{Binding CommandOptions}"
+                                  SelectedItem="{Binding SelectedCommandOption}" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0">
+                            <Button Content="{DynamicResource Str.Settings.CommandNew}" Command="{Binding NewCommandCommand}" />
+                            <Button Content="{DynamicResource Str.Settings.CommandDelete}" Command="{Binding DeleteCommandCommand}" />
+                            <Button Content="{DynamicResource Str.Settings.CommandOpenFolder}" Command="{Binding OpenCommandsFolderCommand}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBox Text="{Binding CommandName}" PlaceholderText="{DynamicResource Str.Settings.CommandName}" />
+                    <TextBox Text="{Binding CommandProgram}" PlaceholderText="{DynamicResource Str.Settings.CommandProgram}" />
+                    <TextBox Text="{Binding CommandArguments}" PlaceholderText="{DynamicResource Str.Settings.CommandArguments}" />
+                    <TextBox Text="{Binding CommandDirectory}" PlaceholderText="{DynamicResource Str.Settings.CommandDirectory}" />
+                    <TextBox Text="{Binding CommandHotkey}" PlaceholderText="{DynamicResource Str.Settings.CommandHotkey}" />
+
+                    <CheckBox IsChecked="{Binding CommandRunAsAdmin}"
+                              Content="{DynamicResource Str.Settings.CommandRunAsAdmin}" />
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.CommandRunAsAdminNote}" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="{DynamicResource Str.Settings.CommandSave}"
+                                Command="{Binding SaveCommandCommand}" />
+                        <Button Content="{DynamicResource Str.Settings.CommandTest}"
+                                Command="{Binding TestCommandCommand}" />
+                        <Button Content="{DynamicResource Str.Settings.CommandTestAdmin}"
+                                Command="{Binding TestCommandElevatedCommand}" />
+                        <Button Content="{DynamicResource Str.Settings.CommandMigrate}"
+                                Command="{Binding MigrateLegacyCommandsCommand}" />
+                    </StackPanel>
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.CommandEditHint}" />
+                    <TextBlock Classes="hint" Text="{Binding CommandsPath}" />
+                </StackPanel>
+            </Border>
+
+            <!-- 热键排除应用 -->
+            <Border Classes="section" IsVisible="{Binding SectionHotkey}">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="sectionTitle" Text="{DynamicResource Str.Settings.Excluded}" />
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.ExcludedNote}" />
+
+                    <Grid ColumnDefinitions="150,*,Auto">
+                        <TextBlock Grid.Column="0"
+                                   VerticalAlignment="Center"
+                                   Text="{DynamicResource Str.Settings.ExcludedForceLabel}" />
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding ForceHotkeyModifiers}"
+                                 IsEnabled="{Binding IgnoredAppsSupported}"
+                                 PlaceholderText="{DynamicResource Str.Settings.ExcludedForcePlaceholder}" />
+                        <Button Grid.Column="2"
+                                Margin="8,0,0,0"
+                                Padding="10,2"
+                                Content="{DynamicResource Str.Settings.HotkeyCapture}"
+                                ToolTip.Tip="{DynamicResource Str.Settings.HotkeyCaptureTip}"
+                                IsEnabled="{Binding IgnoredAppsSupported}"
+                                Command="{Binding CaptureForceModifiersCommand}" />
+                    </Grid>
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.ExcludedForceNote}" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding IgnoredAppsSupported}">
+                        <TextBox Width="360"
+                                 Text="{Binding IgnoredAppDraft}"
+                                 PlaceholderText="{DynamicResource Str.Settings.ExcludedAppPlaceholder}" />
+                        <Button Content="{DynamicResource Str.Settings.ExcludedBrowse}"
+                                Command="{Binding BrowseIgnoredAppCommand}" />
+                        <Button Content="{DynamicResource Str.Settings.ExcludedAdd}"
+                                Command="{Binding AddIgnoredAppCommand}" />
+                    </StackPanel>
+
+                    <ItemsControl ItemsSource="{Binding IgnoredApps}" x:CompileBindings="False">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding}"
+                                               TextWrapping="Wrap"
+                                               VerticalAlignment="Center" />
+                                    <Button Grid.Column="1"
+                                            Padding="10,2"
+                                            Content="✕"
+                                            ToolTip.Tip="{DynamicResource Str.Settings.ExcludedRemoved}"
+                                            Command="{Binding $parent[ItemsControl].DataContext.RemoveIgnoredAppCommand}"
+                                            CommandParameter="{Binding}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- 识别 -->
+            <Border Classes="section" IsVisible="{Binding SectionRecognition}">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="sectionTitle" Text="{DynamicResource Str.Settings.Recognition}" />
+
+                    <Grid ColumnDefinitions="Auto,*">
+                        <ToggleSwitch Grid.Column="0" VerticalAlignment="Top"
+                                      IsChecked="{Binding ShowMainWindowAfterCaptureScan}"
+                                      OnContent="{DynamicResource Str.Settings.On}"
+                                      OffContent="{DynamicResource Str.Settings.Off}" />
+                        <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center"
+                                   Text="{DynamicResource Str.Settings.ShowMainWindowAfterCaptureScan}" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="Auto,*">
+                        <ToggleSwitch Grid.Column="0"
+                                      VerticalAlignment="Top"
+                                      IsChecked="{Binding AutoCopySingleResult}"
+                                      OnContent="{DynamicResource Str.Settings.On}"
+                                      OffContent="{DynamicResource Str.Settings.Off}" />
+                        <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center"
+                                   Text="{DynamicResource Str.Settings.AutoCopyToggle}" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="Auto,*">
+                        <ToggleSwitch Grid.Column="0"
+                                      VerticalAlignment="Top"
+                                      IsChecked="{Binding OpenUrlAutomatically}"
+                                      OnContent="{DynamicResource Str.Settings.On}"
+                                      OffContent="{DynamicResource Str.Settings.Off}" />
+                        <StackPanel Grid.Column="1" Margin="10,2,0,0" Spacing="2">
+                            <TextBlock Text="{DynamicResource Str.Settings.OpenUrlToggle}" />
+                            <TextBlock Classes="hint"
+                                       Foreground="{DynamicResource KscanWarningBrush}"
+                                       Opacity="0.9"
+                                       Text="{DynamicResource Str.Settings.OpenUrlWarning}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="Auto,*">
+                        <ToggleSwitch Grid.Column="0"
+                                      VerticalAlignment="Top"
+                                      IsChecked="{Binding CaptureWindowDetection}"
+                                      IsEnabled="{Binding WindowDetectionSupported}"
+                                      OnContent="{DynamicResource Str.Settings.On}"
+                                      OffContent="{DynamicResource Str.Settings.Off}" />
+                        <StackPanel Grid.Column="1" Margin="10,2,0,0" Spacing="2">
+                            <TextBlock Text="{DynamicResource Str.Settings.WindowDetectionToggle}" />
+                            <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.WindowDetectionNote}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- 子元素识别（默认关闭）：关掉时只认窗口，单击一律截整个窗口 -->
+                    <Grid ColumnDefinitions="Auto,*">
+                        <ToggleSwitch Grid.Column="0"
+                                      VerticalAlignment="Top"
+                                      IsChecked="{Binding CaptureElementDetection}"
+                                      IsEnabled="{Binding ElementDetectionSupported}"
+                                      OnContent="{DynamicResource Str.Settings.On}"
+                                      OffContent="{DynamicResource Str.Settings.Off}" />
+                        <StackPanel Grid.Column="1" Margin="10,2,0,0" Spacing="2">
+                            <TextBlock Text="{DynamicResource Str.Settings.ElementDetectionToggle}" />
+                            <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.ElementDetectionNote}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- 整窗渲染：截窗口时把屏幕外 / 被挡住的部分也拿到（Windows 的 PrintWindow） -->
+                    <Grid ColumnDefinitions="Auto,*">
+                        <ToggleSwitch Grid.Column="0"
+                                      VerticalAlignment="Top"
+                                      IsChecked="{Binding CaptureWholeWindowOffScreen}"
+                                      IsEnabled="{Binding WholeWindowCaptureSupported}"
+                                      OnContent="{DynamicResource Str.Settings.On}"
+                                      OffContent="{DynamicResource Str.Settings.Off}" />
+                        <StackPanel Grid.Column="1" Margin="10,2,0,0" Spacing="2">
+                            <TextBlock Text="{DynamicResource Str.Settings.WholeWindowOffScreenToggle}" />
+                            <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.WholeWindowOffScreenNote}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="Auto,*">
+                        <ToggleSwitch Grid.Column="0"
+                                      VerticalAlignment="Top"
+                                      IsChecked="{Binding CaptureWholeWindowOccluded}"
+                                      IsEnabled="{Binding WholeWindowCaptureSupported}"
+                                      OnContent="{DynamicResource Str.Settings.On}"
+                                      OffContent="{DynamicResource Str.Settings.Off}" />
+                        <StackPanel Grid.Column="1" Margin="10,2,0,0" Spacing="2">
+                            <TextBlock Text="{DynamicResource Str.Settings.WholeWindowOccludedToggle}" />
+                            <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.WholeWindowOccludedNote}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- 元素截图边界：外扩（+）/ 内缩（-）像素，默认 +2；窗口截取不受影响 -->
+                    <Grid ColumnDefinitions="Auto,*">
+                        <NumericUpDown Grid.Column="0"
+                                       Width="120"
+                                       VerticalAlignment="Top"
+                                       Minimum="-50"
+                                       Maximum="50"
+                                       Increment="1"
+                                       FormatString="0"
+                                       Value="{Binding ElementCapturePadding}" />
+                        <StackPanel Grid.Column="1" Margin="10,2,0,0" Spacing="2">
+                            <TextBlock Text="{DynamicResource Str.Settings.ElementPadding}" />
+                            <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.ElementPaddingNote}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- 子元素层级依次往上：滚轮 / Tab / ↑↓ / 关闭（涉及的按键全部可改） -->
+                    <Grid ColumnDefinitions="Auto,*">
+                        <TextBlock Grid.Column="0" Classes="key" VerticalAlignment="Center"
+                                   Text="{DynamicResource Str.Settings.ElementLevelKey}" />
+                        <ComboBox Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Left" MinWidth="140"
+                                  ItemsSource="{Binding ElementLevelKeyOptions}"
+                                  SelectedItem="{Binding ElementLevelKey}" />
+                    </Grid>
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.ElementLevelKeyNote}" />
+
+                    <Grid ColumnDefinitions="Auto,*">
+                        <TextBlock Grid.Column="0" Classes="key" VerticalAlignment="Center"
+                                   Text="{DynamicResource Str.Settings.ElementIgnoreModifier}" />
+                        <ComboBox Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Left" MinWidth="140"
+                                  ItemsSource="{Binding MaskModifierOptions}"
+                                  SelectedItem="{Binding ElementIgnoreModifier}" />
+                    </Grid>
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.ElementIgnoreNote}" />
+
+                    <!-- 光标标记：截图不含光标，遮罩上直接显示光标图像标出它停在哪 -->
+                    <Grid ColumnDefinitions="Auto,*">
+                        <ToggleSwitch Grid.Column="0"
+                                      VerticalAlignment="Top"
+                                      IsChecked="{Binding CursorMarkerEnabled}"
+                                      OnContent="{DynamicResource Str.Settings.On}"
+                                      OffContent="{DynamicResource Str.Settings.Off}" />
+                        <StackPanel Grid.Column="1" Margin="10,2,0,0" Spacing="2">
+                            <TextBlock Text="{DynamicResource Str.Settings.CursorMarkerToggle}" />
+                            <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.CursorMarkerNote}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="Auto,*" IsEnabled="{Binding CursorMarkerEnabled}">
+                        <ToggleSwitch Grid.Column="0"
+                                      VerticalAlignment="Top"
+                                      IsChecked="{Binding CursorMarkerShowCursor}"
+                                      OnContent="{DynamicResource Str.Settings.On}"
+                                      OffContent="{DynamicResource Str.Settings.Off}" />
+                        <StackPanel Grid.Column="1" Margin="10,2,0,0" Spacing="2">
+                            <TextBlock Text="{DynamicResource Str.Settings.CursorMarkerShowCursor}" />
+                            <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.CursorMarkerShowCursorNote}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="Auto,*" IsEnabled="{Binding CursorMarkerEnabled}">
+                        <ToggleSwitch Grid.Column="0"
+                                      VerticalAlignment="Top"
+                                      IsChecked="{Binding CursorMarkerShowFrame}"
+                                      OnContent="{DynamicResource Str.Settings.On}"
+                                      OffContent="{DynamicResource Str.Settings.Off}" />
+                        <StackPanel Grid.Column="1" Margin="10,2,0,0" Spacing="2">
+                            <TextBlock Text="{DynamicResource Str.Settings.CursorMarkerFrame}" />
+                            <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.CursorMarkerFrameNote}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="Auto,*" IsEnabled="{Binding CursorMarkerEnabled}">
+                        <TextBlock Grid.Column="0" Classes="key" VerticalAlignment="Center"
+                                   Text="{DynamicResource Str.Settings.CursorMarkerColor}" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0">
+                            <TextBox Width="130" Text="{Binding CursorMarkerColor}" />
+                            <Button Padding="8,0" Content="🎨"
+                                    ToolTip.Tip="{DynamicResource Str.Settings.ColorPick}"
+                                    Command="{Binding PickCursorColorCommand}" />
+                            <TextBlock VerticalAlignment="Center" Text="{DynamicResource Str.Settings.CursorMarkerThickness}" />
+                            <Slider Width="120"
+                                    Minimum="0.5"
+                                    Maximum="6"
+                                    TickFrequency="0.5"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding CursorMarkerThickness}" />
+                            <TextBlock VerticalAlignment="Center" Width="26"
+                                       Text="{Binding CursorMarkerThickness, StringFormat={}{0:0.#}}" />
+                            <TextBlock VerticalAlignment="Center" Text="{DynamicResource Str.Settings.CursorMarkerOpacity}" />
+                            <Slider Width="110"
+                                    Minimum="0.1"
+                                    Maximum="1"
+                                    TickFrequency="0.05"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding CursorMarkerOpacity}" />
+                            <TextBlock VerticalAlignment="Center" Width="38"
+                                       Text="{Binding CursorMarkerOpacity, StringFormat={}{0:P0}}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="Auto,*" IsEnabled="{Binding CursorMarkerEnabled}">
+                        <TextBlock Grid.Column="0" Classes="key" VerticalAlignment="Center"
+                                   Text="{DynamicResource Str.Settings.CaptureCursorKey}" />
+                        <ComboBox Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Left" MinWidth="140"
+                                  ItemsSource="{Binding CaptureCursorKeyOptions}"
+                                  SelectedItem="{Binding CaptureCursorKey}" />
+                    </Grid>
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.CursorMarkerKeyNote}" />
+
+                    <!-- 快捷转码：把剪贴板里的文本一键变成码 -->
+                    <Grid ColumnDefinitions="150,*">
+                        <TextBlock Grid.Column="0"
+                                   VerticalAlignment="Center"
+                                   Text="{DynamicResource Str.Settings.QuickCodeFormat}" />
+                        <ComboBox Grid.Column="1"
+                                  HorizontalAlignment="Left"
+                                  MinWidth="220"
+                                  ItemsSource="{Binding CodeFormats}"
+                                  SelectedItem="{Binding QuickCodeFormat}" />
+                    </Grid>
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.QuickCodeFormatNote}" />
+                </StackPanel>
+            </Border>
+
+            <!-- 外观 / 主题 -->
+            <Border Classes="section" IsVisible="{Binding SectionAppearance}">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="sectionTitle" Text="{DynamicResource Str.Settings.Theme}" />
+
+                    <!-- 主题预览：颜色改动会立即反映在这张卡片上 -->
+                    <Border Background="{DynamicResource KscanBackgroundBrush}"
+                            BorderBrush="{DynamicResource KscanBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{DynamicResource KscanPreviewCornerRadius}"
+                            Padding="12">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{DynamicResource Str.Settings.ThemePreviewTitle}"
+                                       Foreground="{DynamicResource KscanForegroundBrush}"
+                                       FontWeight="SemiBold" />
+                            <TextBlock Text="{DynamicResource Str.Settings.ThemePreviewBody}"
+                                       Foreground="{DynamicResource KscanMutedBrush}" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Border Background="{DynamicResource KscanAccentBrush}" Width="60" Height="16" CornerRadius="3" />
+                                <Border Background="{DynamicResource KscanPanelBrush}" Width="60" Height="16" CornerRadius="3" />
+                                <Border Background="{DynamicResource KscanWarningBrush}" Width="60" Height="16" CornerRadius="3" />
+                                <Border Background="{DynamicResource KscanSuccessBrush}" Width="60" Height="16" CornerRadius="3" />
+                                <Border Background="{DynamicResource KscanDangerBrush}" Width="60" Height="16" CornerRadius="3" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Grid ColumnDefinitions="150,*">
+                        <TextBlock Grid.Column="0"
+                                   VerticalAlignment="Center"
+                                   Text="{DynamicResource Str.Settings.ThemeLabel}" />
+                        <ComboBox Grid.Column="1"
+                                  HorizontalAlignment="Left"
+                                  MinWidth="240"
+                                  ItemsSource="{Binding Themes}"
+                                  SelectedItem="{Binding Theme}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:CompileBindings="False">
+                                    <TextBlock Text="{Binding DisplayName}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="{DynamicResource Str.Settings.ThemeOpenFolder}"
+                                Command="{Binding OpenThemesFolderCommand}" />
+                        <Button Content="{DynamicResource Str.Settings.ThemeReload}"
+                                Command="{Binding ReloadThemesCommand}" />
+                        <Button Content="{DynamicResource Str.Settings.ThemeEditFile}"
+                                Command="{Binding EditThemeFileCommand}" />
+                        <Button Content="{DynamicResource Str.Settings.ThemeExport}"
+                                Command="{Binding ExportThemeCommand}" />
+                    </StackPanel>
+
+                    <!-- 圆角：卡片 / 面板 + 预览框，两者都写进主题文件 -->
+                    <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0"
+                                   VerticalAlignment="Center"
+                                   Text="{DynamicResource Str.Settings.ThemeCornerRadius}" />
+                        <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                            <Slider Width="220"
+                                    Minimum="0"
+                                    Maximum="32"
+                                    TickFrequency="1"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding ThemeCornerRadius}" />
+                            <TextBlock VerticalAlignment="Center" Width="28"
+                                       Text="{Binding ThemeCornerRadius, StringFormat={}{0:0}}" />
+                        </StackPanel>
+                        <TextBlock Grid.Row="1" Grid.Column="0"
+                                   VerticalAlignment="Center"
+                                   Margin="0,6,0,0"
+                                   Text="{DynamicResource Str.Settings.ThemePreviewRadius}" />
+                        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
+                            <Slider Width="220"
+                                    Minimum="0"
+                                    Maximum="32"
+                                    TickFrequency="1"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding ThemePreviewCornerRadius}" />
+                            <TextBlock VerticalAlignment="Center" Width="28"
+                                       Text="{Binding ThemePreviewCornerRadius, StringFormat={}{0:0}}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- 字体：可以从系统字体下拉里挑，也可以手填（留空 = 跟随系统） -->
+                    <Grid ColumnDefinitions="150,*,Auto">
+                        <TextBlock Grid.Column="0"
+                                   VerticalAlignment="Center"
+                                   Text="{DynamicResource Str.Settings.ThemeFont}" />
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding ThemeFontFamily}"
+                                 PlaceholderText="{DynamicResource Str.Settings.ThemeFontHint}" />
+                        <ComboBox Grid.Column="2"
+                                  Margin="8,0,0,0"
+                                  Width="220"
+                                  ItemsSource="{Binding FontFamilies}"
+                                  SelectedItem="{Binding ThemeFontSelection, Mode=TwoWay}"
+                                  PlaceholderText="{DynamicResource Str.Settings.ThemeFontPick}" />
+                    </Grid>
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.ThemeFontNote}" />
+
+                    <!-- 截图遮罩：样式；颜色在下面颜色表里的「截图遮罩」那行 -->
+                    <Grid ColumnDefinitions="150,*">
+                        <TextBlock Grid.Column="0"
+                                   VerticalAlignment="Center"
+                                   Text="{DynamicResource Str.Settings.ThemeMaskStyle}" />
+                        <ComboBox Grid.Column="1"
+                                  HorizontalAlignment="Left"
+                                  MinWidth="220"
+                                  ItemsSource="{Binding MaskStyles}"
+                                  SelectedItem="{Binding MaskStyle}" />
+                    </Grid>
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.ThemeMaskNote}" />
+
+                    <Grid ColumnDefinitions="110,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,4" Text="{DynamicResource Str.Settings.ColorBackground}" />
+                        <TextBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,4" Text="{Binding ColorBackground}" />
+                        <Button Grid.Row="0" Grid.Column="2" Margin="4,0,0,4" Padding="8,0" Content="🎨" ToolTip.Tip="{DynamicResource Str.Settings.ColorPick}" Command="{Binding PickColorCommand}" CommandParameter="Background" />
+                        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,4" Text="{DynamicResource Str.Settings.ColorForeground}" />
+                        <TextBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,4" Text="{Binding ColorForeground}" />
+                        <Button Grid.Row="1" Grid.Column="2" Margin="4,0,0,4" Padding="8,0" Content="🎨" ToolTip.Tip="{DynamicResource Str.Settings.ColorPick}" Command="{Binding PickColorCommand}" CommandParameter="Foreground" />
+                        <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,4" Text="{DynamicResource Str.Settings.ColorMuted}" />
+                        <TextBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,4" Text="{Binding ColorMuted}" />
+                        <Button Grid.Row="2" Grid.Column="2" Margin="4,0,0,4" Padding="8,0" Content="🎨" ToolTip.Tip="{DynamicResource Str.Settings.ColorPick}" Command="{Binding PickColorCommand}" CommandParameter="Muted" />
+                        <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,4" Text="{DynamicResource Str.Settings.ColorAccent}" />
+                        <TextBox Grid.Row="3" Grid.Column="1" Margin="0,0,0,4" Text="{Binding ColorAccent}" />
+                        <Button Grid.Row="3" Grid.Column="2" Margin="4,0,0,4" Padding="8,0" Content="🎨" ToolTip.Tip="{DynamicResource Str.Settings.ColorPick}" Command="{Binding PickColorCommand}" CommandParameter="Accent" />
+                        <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,4" Text="{DynamicResource Str.Settings.ColorPanel}" />
+                        <TextBox Grid.Row="4" Grid.Column="1" Margin="0,0,0,4" Text="{Binding ColorPanel}" />
+                        <Button Grid.Row="4" Grid.Column="2" Margin="4,0,0,4" Padding="8,0" Content="🎨" ToolTip.Tip="{DynamicResource Str.Settings.ColorPick}" Command="{Binding PickColorCommand}" CommandParameter="Panel" />
+                        <TextBlock Grid.Row="5" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,4" Text="{DynamicResource Str.Settings.ColorBorder}" />
+                        <TextBox Grid.Row="5" Grid.Column="1" Margin="0,0,0,4" Text="{Binding ColorBorder}" />
+                        <Button Grid.Row="5" Grid.Column="2" Margin="4,0,0,4" Padding="8,0" Content="🎨" ToolTip.Tip="{DynamicResource Str.Settings.ColorPick}" Command="{Binding PickColorCommand}" CommandParameter="Border" />
+                        <TextBlock Grid.Row="6" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,4" Text="{DynamicResource Str.Settings.ColorWarning}" />
+                        <TextBox Grid.Row="6" Grid.Column="1" Margin="0,0,0,4" Text="{Binding ColorWarning}" />
+                        <Button Grid.Row="6" Grid.Column="2" Margin="4,0,0,4" Padding="8,0" Content="🎨" ToolTip.Tip="{DynamicResource Str.Settings.ColorPick}" Command="{Binding PickColorCommand}" CommandParameter="Warning" />
+                        <TextBlock Grid.Row="7" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,4" Text="{DynamicResource Str.Settings.ColorSuccess}" />
+                        <TextBox Grid.Row="7" Grid.Column="1" Margin="0,0,0,4" Text="{Binding ColorSuccess}" />
+                        <Button Grid.Row="7" Grid.Column="2" Margin="4,0,0,4" Padding="8,0" Content="🎨" ToolTip.Tip="{DynamicResource Str.Settings.ColorPick}" Command="{Binding PickColorCommand}" CommandParameter="Success" />
+                        <TextBlock Grid.Row="8" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,4" Text="{DynamicResource Str.Settings.ColorDanger}" />
+                        <TextBox Grid.Row="8" Grid.Column="1" Margin="0,0,0,4" Text="{Binding ColorDanger}" />
+                        <Button Grid.Row="8" Grid.Column="2" Margin="4,0,0,4" Padding="8,0" Content="🎨" ToolTip.Tip="{DynamicResource Str.Settings.ColorPick}" Command="{Binding PickColorCommand}" CommandParameter="Danger" />
+                        <TextBlock Grid.Row="9" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,4" Text="{DynamicResource Str.Settings.ColorSelection}" />
+                        <TextBox Grid.Row="9" Grid.Column="1" Margin="0,0,0,4" Text="{Binding ColorSelection}" />
+                        <Button Grid.Row="9" Grid.Column="2" Margin="4,0,0,4" Padding="8,0" Content="🎨" ToolTip.Tip="{DynamicResource Str.Settings.ColorPick}" Command="{Binding PickColorCommand}" CommandParameter="Selection" />
+                        <TextBlock Grid.Row="10" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,4" Text="{DynamicResource Str.Settings.ColorMask}" />
+                        <TextBox Grid.Row="10" Grid.Column="1" Margin="0,0,0,4" Text="{Binding ColorMask}" />
+                        <Button Grid.Row="10" Grid.Column="2" Margin="4,0,0,4" Padding="8,0" Content="🎨" ToolTip.Tip="{DynamicResource Str.Settings.ColorPick}" Command="{Binding PickColorCommand}" CommandParameter="Mask" />
+                    </Grid>
+
+                    <!-- 主题名：只给「另存为新主题」用；保存到当前主题不需要它 -->
+                    <Grid ColumnDefinitions="150,*">
+                        <TextBlock Grid.Column="0"
+                                   VerticalAlignment="Center"
+                                   Text="{DynamicResource Str.Settings.ThemeName}" />
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding ThemeName}"
+                                 PlaceholderText="{DynamicResource Str.Settings.ThemeNameHint}" />
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="{DynamicResource Str.Settings.ThemeColorsReset}" Command="{Binding ResetThemeCommand}" />
+                        <Button Content="{DynamicResource Str.Settings.ThemeSaveCurrent}" Command="{Binding SaveThemeCommand}" />
+                        <Button Content="{DynamicResource Str.Settings.ThemeSaveAs}" Command="{Binding SaveThemeAsCommand}" />
+                    </StackPanel>
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.ThemeStaged}" />
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.ThemeNote}" />
+                    <TextBlock Classes="hint" Text="{Binding ThemesPath}" />
+                </StackPanel>
+            </Border>
+
+            <!-- 界面：语言 + 底部信息 -->
+            <Border Classes="section" IsVisible="{Binding SectionInterface}">
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="sectionTitle" Text="{DynamicResource Str.Settings.Interface}" />
+
+                    <Grid ColumnDefinitions="150,*">
+                        <TextBlock Grid.Column="0"
+                                   VerticalAlignment="Center"
+                                   Text="{DynamicResource Str.Settings.Language}" />
+                        <ComboBox Grid.Column="1"
+                                  HorizontalAlignment="Left"
+                                  MinWidth="220"
+                                  ItemsSource="{Binding Languages}"
+                                  SelectedItem="{Binding Language}" />
+                    </Grid>
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.LanguageNote}" />
+
+                    <Grid ColumnDefinitions="Auto,*">
+                        <ToggleSwitch Grid.Column="0"
+                                      VerticalAlignment="Top"
+                                      IsChecked="{Binding ShowPlatformSummary}"
+                                      OnContent="{DynamicResource Str.Settings.On}"
+                                      OffContent="{DynamicResource Str.Settings.Off}" />
+                        <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center"
+                                   Text="{DynamicResource Str.Settings.ShowPlatformSummary}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- 页脚：最近一次操作反馈 + 配置文件位置 -->
+            <StackPanel Spacing="6" Margin="2,2,2,0">
+                <TextBlock Text="{Binding Status}"
+                           TextWrapping="Wrap"
+                           Opacity="0.75"
+                           IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                <TextBlock Classes="hint" Text="{Binding ConfigHint}" />
+            </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+    </Grid>
+</UserControl>

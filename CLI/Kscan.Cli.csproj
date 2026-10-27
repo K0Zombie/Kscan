@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\src\Kscan.Core\Kscan.Core.csproj" />
+    <ProjectReference Include="..\src\Kscan.Platform\Kscan.Platform.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- 产物名与文档里的命令名一致：kscan / kscan.exe -->
+    <AssemblyName>kscan</AssemblyName>
+    <ApplicationIcon>../GUI/Assets/kscan.ico</ApplicationIcon>
+    <!--
+      默认按"目录式"发布（Linux 侧用 pacman 包分发，见 packaging/arch/PKGBUILD）——单文件只是可选。
+      需要单文件 exe 时显式加：
+        -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+        [-p:EnableCompressionInSingleFile=true]   # 体积更小，代价是首次启动要自解压
+      IncludeNativeLibrariesForSelfExtract 不能省：SkiaSharp 带 native 库，
+      不允许自解压就会在运行时报缺 libSkiaSharp。
+    -->
+  </PropertyGroup>
+
+</Project>

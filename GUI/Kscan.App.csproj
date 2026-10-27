@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <!-- 与 CLI 的 kscan / kscan.exe 区分开 -->
+    <AssemblyName>kscan-gui</AssemblyName>
+    <ApplicationIcon>Assets/kscan.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- i18n 资源字典：运行时按语言加载 avares://<程序集>/Assets/i18n/<lang>.axaml -->
+    <AvaloniaResource Include="Assets/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.4" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Markdown.Avalonia" Version="12.0.0-a3" />
+
+    <!--
+      Avalonia 会传递一个较旧的 SkiaSharp native 包（3.119.4），与 Core 用的 SkiaSharp 4.153.1
+      冲突：两者都提供 libSkiaSharp.so，输出目录里最终留下旧的那个，Linux 上直接崩：
+        The version of the native libSkiaSharp library (119.0) is incompatible ...
+      这里显式引用并排除它的资产，统一使用 4.153.1 那套。
+    -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" ExcludeAssets="all" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Kscan.App.Tests" />
+    <ProjectReference Include="..\src\Kscan.Core\Kscan.Core.csproj" />
+    <ProjectReference Include="..\src\Kscan.Platform\Kscan.Platform.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 常驻托盘场景：让 GC 更积极地归还内存（0-9，越大越省；不影响热点代码的 JIT） -->
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="5" />
+  </ItemGroup>
+
+</Project>

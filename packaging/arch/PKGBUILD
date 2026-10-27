@@ -1,0 +1,67 @@
+# Maintainer: K0Zombie
+# 在 Arch 上构建安装：cd Kscan/packaging/arch && makepkg -si
+# 需要：base-devel、dotnet-sdk（构建期）、能访问 nuget.org
+
+pkgname=kscan
+pkgver=0.1.15
+pkgrel=1
+pkgdesc="跨平台二维码/条码扫描与生成工具（命令行：识别 / 生成 / 等宽字符画 / 管道）"
+arch=('x86_64' 'aarch64')
+url="https://github.com/1357310795/QrCodeScanner"
+# 上游项目未声明许可证，按需替换
+license=('custom')
+makedepends=('dotnet-sdk')
+options=('!strip' '!debug')
+
+# ---------------------------------------------------------------------------
+# 打包方式开关
+#   true  = self-contained：把 .NET 运行时打进包（实测 linux-x64 目录式 92MB，
+#           zstd 压缩后的 .pkg.tar.zst 约 35-40MB），不依赖系统 dotnet，
+#           对 Arch 这种滚动更新的发行版最省心（不会被 dotnet-runtime 升级影响）
+#   false = framework-dependent：包很小（约 2MB），但需要系统已装 dotnet-runtime
+# ---------------------------------------------------------------------------
+_self_contained=true
+
+if $_self_contained; then
+  depends=('glibc')
+else
+  depends=('glibc' 'dotnet-runtime')
+fi
+
+# 运行期可选依赖（不装也能跑识别/生成，只是少了截图与剪贴板通路）：
+#   grim + slurp   框选截图（niri / sway / Hyprland）
+#   wl-clipboard   剪贴板图片（wl-copy / wl-paste）
+#   flameshot      另一条截图路线；多显示器 + niri 下的限制见 Kscan/docs/DESIGN.md §3.3
+
+# 源码就是本仓库工作树，因此不需要 source 数组
+source=()
+_srcroot="$startdir/../.."
+
+case "$CARCH" in
+  x86_64)  _rid=linux-x64 ;;
+  aarch64) _rid=linux-arm64 ;;
+  *)       _rid="linux-$CARCH" ;;
+esac
+
+build() {
+  cd "$_srcroot"
+  dotnet publish CLI \
+    --configuration Release \
+    --runtime "$_rid" \
+    --self-contained "$_self_contained" \
+    --output "$srcdir/out" \
+    -p:PublishSingleFile=false \
+    -p:StripPdbsFromPublish=true
+}
+
+package() {
+  install -d "$pkgdir/usr/lib/$pkgname" "$pkgdir/usr/bin"
+
+  # 目录式产物整份放进 /usr/lib/kscan，/usr/bin/kscan 只放一个符号链接（Arch 惯例）
+  cp -a "$srcdir/out/." "$pkgdir/usr/lib/$pkgname/"
+  ln -s "../lib/$pkgname/$pkgname" "$pkgdir/usr/bin/$pkgname"
+
+  if [ -f "$_srcroot/LICENSE" ]; then
+    install -Dm644 "$_srcroot/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  fi
+}

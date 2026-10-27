@@ -1,0 +1,21 @@
+{
+  "id": "ocean",
+  "name": "海蓝",
+  "base": "dark",
+  "colors": {
+    "background": "#16242E",
+    "foreground": "#E6F2FA",
+    "mutedForeground": "#A5BDCE",
+    "accent": "#58C8F5",
+    "panel": "#243A49",
+    "border": "#466477",
+    "warning": "#F6C568",
+    "success": "#75D6AC",
+    "danger": "#FF8D94",
+    "selection": "#4058C8F5"
+  },
+  "cornerRadius": 8,
+  "previewCornerRadius": 4,
+  "fontFamily": null,
+  "mask": { "style": "none", "color": "#80000000" }
+}

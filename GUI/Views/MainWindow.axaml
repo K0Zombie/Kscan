@@ -1,0 +1,90 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:Kscan.App.Views"
+        xmlns:vm="clr-namespace:Kscan.App.ViewModels"
+        x:Class="Kscan.App.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="{DynamicResource Str.App.Title}"
+        Icon="/Assets/kscan.ico"
+        Width="1000" Height="680"
+        MinWidth="760" MinHeight="520"
+        Background="{DynamicResource KscanBackgroundBrush}"
+        FontFamily="{DynamicResource KscanFontFamily}"
+        WindowStartupLocation="CenterScreen">
+
+    <Grid RowDefinitions="*,Auto,Auto,Auto">
+        <TabControl Grid.Row="0" Margin="8,8,8,0" SelectedIndex="{Binding ActiveTabIndex}">
+            <TabItem Header="{DynamicResource Str.Tab.Scan}">
+                <views:ScanPage DataContext="{Binding Scan}" />
+            </TabItem>
+            <TabItem Header="{DynamicResource Str.Tab.Generate}">
+                <!-- 同设置页：算码页也等第一次切过去再建（启动时只建识别页） -->
+                <ContentControl Content="{Binding}">
+                    <ContentControl.ContentTemplate>
+                        <DataTemplate x:DataType="vm:MainViewModel">
+                            <views:GeneratePage DataContext="{Binding Generate}" />
+                        </DataTemplate>
+                    </ContentControl.ContentTemplate>
+                </ContentControl>
+            </TabItem>
+            <TabItem Header="{DynamicResource Str.Tab.Settings}">
+                <!--
+                  设置页控件很多（几百个控件 + 下拉 + 滑动条）：直接写 <views:SettingsPage/> 会在**启动时**
+                  就全部建出来，白占一份常驻内存。套一层 ContentControl + DataTemplate 后，只有第一次切到
+                  「设置」页才会实例化（Avalonia 的 TabControl 只把选中页放进可视树）。
+                -->
+                <ContentControl Content="{Binding}">
+                    <ContentControl.ContentTemplate>
+                        <DataTemplate x:DataType="vm:MainViewModel">
+                            <views:SettingsPage DataContext="{Binding Settings}" />
+                        </DataTemplate>
+                    </ContentControl.ContentTemplate>
+                </ContentControl>
+            </TabItem>
+        </TabControl>
+
+        <!-- 贴图管理条：屏幕上有贴图时才出现 —— 开了「穿透」的贴图收不到点击，这里是唯一的回收入口 -->
+        <StackPanel Grid.Row="1"
+                    Margin="16,0,16,0"
+                    Orientation="Horizontal"
+                    Spacing="8"
+                    IsVisible="{Binding HasPins}">
+            <TextBlock Text="{Binding PinSummary}"
+                       VerticalAlignment="Center"
+                       FontSize="11"
+                       Opacity="0.55" />
+            <Button Content="{DynamicResource Str.Pin.RestoreInteraction}"
+                    Command="{Binding RestorePinsCommand}"
+                    FontSize="11" />
+            <Button Content="{DynamicResource Str.Pin.CloseAll}"
+                    Command="{Binding CloseAllPinsCommand}"
+                    FontSize="11" />
+            <TextBlock Text="{Binding PinStatus}"
+                       VerticalAlignment="Center"
+                       FontSize="11"
+                       Opacity="0.7" />
+        </StackPanel>
+
+        <!--
+            最近一次贴图/热键动作的结果。热键触发的操作没有别的可见出口：
+            以前这条只写在"贴图条"里，而贴图条要 HasPins 才可见 —— 于是"剪贴板里没有图片"
+            这种失败提示永远不显示，看起来就是"按了没反应"。
+        -->
+        <TextBlock Grid.Row="2"
+                   Margin="16,4,16,0"
+                   FontSize="11"
+                   Opacity="0.75"
+                   TextWrapping="Wrap"
+                   Text="{Binding PinStatus}"
+                   IsVisible="{Binding PinStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+        <!-- 底部平台信息：一眼看清当前环境能做什么、不能做什么（可在设置页关掉） -->
+        <TextBlock Grid.Row="3"
+                   Margin="16,6,16,10"
+                   FontSize="11"
+                   Opacity="0.55"
+                   TextWrapping="Wrap"
+                   IsVisible="{Binding ShowPlatformSummary}"
+                   Text="{Binding PlatformSummary}" />
+    </Grid>
+</Window>

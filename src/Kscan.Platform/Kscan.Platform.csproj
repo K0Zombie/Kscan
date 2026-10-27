@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!--
+      Windows 专属 API（BitBlt / 注册表）都在运行时用 OperatingSystem.IsWindows() 保护，
+      所以这里保持 net10.0（而不是 net10.0-windows），Linux 上也能引用同一个程序集。
+    -->
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <!--
+    测试要直接构造 SingleInstanceChannel（internal）。给测试项目开可见性，
+    而不是为了让测试够得着就把实现类改成 public。
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Kscan.Platform.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Kscan.Core\Kscan.Core.csproj" />
+  </ItemGroup>
+
+</Project>

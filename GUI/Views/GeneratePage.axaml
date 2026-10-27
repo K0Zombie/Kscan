@@ -1,0 +1,129 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Kscan.App.ViewModels"
+             x:Class="Kscan.App.Views.GeneratePage"
+             x:DataType="vm:GenerateViewModel">
+
+    <Grid Margin="16" ColumnDefinitions="340,*">
+
+        <!-- 参数（标签在上、控件在下）+ 固定在左栏底部的操作行 -->
+        <Grid Grid.Column="0" RowDefinitions="*,Auto" Margin="0,0,14,0">
+
+            <ScrollViewer Grid.Row="0">
+                <StackPanel Spacing="8">
+
+                    <TextBlock Text="{DynamicResource Str.Generate.Template}" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding Templates}"
+                              SelectedItem="{Binding Template}" />
+
+                    <TextBox Text="{Binding Text}"
+                             IsVisible="{Binding IsPlainText}"
+                             AcceptsReturn="True"
+                             Height="76"
+                             TextWrapping="Wrap"
+                             PlaceholderText="{DynamicResource Str.Generate.TextPlaceholder}" />
+
+                    <StackPanel IsVisible="{Binding IsWifi}" Spacing="6">
+                        <TextBox Text="{Binding WifiSsid}" PlaceholderText="{DynamicResource Str.Generate.WifiSsid}" />
+                        <TextBox Text="{Binding WifiPassword}" PlaceholderText="{DynamicResource Str.Generate.WifiPassword}" />
+                        <ComboBox HorizontalAlignment="Stretch"
+                                  ItemsSource="{Binding WifiSecurities}"
+                                  SelectedItem="{Binding WifiSecurity}" />
+                    </StackPanel>
+
+                    <TextBox Text="{Binding Url}"
+                             IsVisible="{Binding IsUrl}"
+                             PlaceholderText="{DynamicResource Str.Generate.UrlPlaceholder}" />
+
+                    <StackPanel IsVisible="{Binding IsVCard}" Spacing="6">
+                        <TextBox Text="{Binding VcardName}" PlaceholderText="{DynamicResource Str.Generate.Name}" />
+                        <TextBox Text="{Binding VcardPhone}" PlaceholderText="{DynamicResource Str.Generate.Phone}" />
+                        <TextBox Text="{Binding VcardEmail}" PlaceholderText="{DynamicResource Str.Generate.Email}" />
+                    </StackPanel>
+
+                    <StackPanel IsVisible="{Binding IsGeo}" Spacing="6">
+                        <TextBox Text="{Binding Latitude}" PlaceholderText="{DynamicResource Str.Generate.Latitude}" />
+                        <TextBox Text="{Binding Longitude}" PlaceholderText="{DynamicResource Str.Generate.Longitude}" />
+                    </StackPanel>
+
+                    <TextBlock Text="{DynamicResource Str.Generate.Format}" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding Formats}"
+                              SelectedItem="{Binding SelectedFormat}" />
+
+                    <TextBlock Text="{DynamicResource Str.Generate.Size}" />
+                    <Slider Minimum="120" Maximum="1024"
+                            TickFrequency="8" IsSnapToTickEnabled="True"
+                            Value="{Binding Size}" />
+
+                    <TextBlock Text="{DynamicResource Str.Generate.Margin}" />
+                    <Slider Minimum="0" Maximum="16"
+                            TickFrequency="1" IsSnapToTickEnabled="True"
+                            Value="{Binding Margin}" />
+
+                    <TextBlock Text="{DynamicResource Str.Generate.ErrorCorrection}" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding ErrorCorrections}"
+                              SelectedItem="{Binding ErrorCorrection}" />
+
+                    <TextBlock Text="{DynamicResource Str.Generate.Logo}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="{DynamicResource Str.Generate.PickLogo}" Command="{Binding PickLogoCommand}" />
+                        <Button Content="{DynamicResource Str.Generate.ClearLogo}" Command="{Binding ClearLogoCommand}" IsVisible="{Binding HasLogo}" />
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding LogoName}"
+                               IsVisible="{Binding HasLogo}"
+                               Opacity="0.7"
+                               FontSize="12"
+                               TextTrimming="CharacterEllipsis" />
+
+                    <StackPanel Spacing="8" IsVisible="{Binding HasLogo}">
+                        <TextBlock Text="{DynamicResource Str.Generate.LogoScale}" />
+                        <Slider Minimum="0.08" Maximum="0.5"
+                                TickFrequency="0.02" IsSnapToTickEnabled="True"
+                                Value="{Binding LogoScale}" />
+                    </StackPanel>
+
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- 主要操作固定在左栏底部：左栏内容再长也不会把它们滚出视野 -->
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,12,0,0">
+                <Button Content="{DynamicResource Str.Generate.Save}" Command="{Binding SaveCommand}" />
+                <Button Content="{DynamicResource Str.Generate.CopyImage}" Command="{Binding CopyImageCommand}" />
+                <Button Content="{DynamicResource Str.Pin.PinImage}" Command="{Binding PinImageCommand}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- 预览 -->
+        <Border Grid.Column="1"
+                Margin="16,0,0,0"
+                Padding="12"
+                CornerRadius="{DynamicResource KscanCornerRadius}"
+                Background="#26808080">
+            <Grid RowDefinitions="*,Auto,Auto">
+                <Image Grid.Row="0"
+                       Source="{Binding Preview}"
+                       Stretch="Uniform"
+                       RenderOptions.BitmapInterpolationMode="None" />
+
+                <TextBlock Grid.Row="1"
+                           Margin="0,10,0,0"
+                           Text="{Binding PayloadPreview}"
+                           TextWrapping="Wrap"
+                           FontFamily="Consolas,Menlo,monospace"
+                           FontSize="12"
+                           MaxHeight="80" />
+
+                <TextBlock Grid.Row="2"
+                           Margin="0,8,0,0"
+                           Text="{Binding Status}"
+                           Opacity="0.7"
+                           FontSize="12"
+                           TextWrapping="Wrap" />
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

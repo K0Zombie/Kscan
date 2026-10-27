@@ -1,0 +1,1057 @@
+using System.Collections.ObjectModel;
+using Avalonia.Input.Platform;
+using Avalonia.Media.Imaging;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Kscan.App.Controls;
+using Kscan.App.Services;
+using Kscan.Core.Imaging;
+using Kscan.Core.Model;
+using Kscan.Core.Pipeline;
+using Kscan.Platform;
+
+namespace Kscan.App.ViewModels;
+
+/// <summary>识别页。</summary>
+public sealed partial class ScanViewModel : ObservableObject
+{
+    /// <summary>上一次状态的文案 key 与参数：语言一变就按新语言重算（状态栏字符串是算好的，不会自己更新）。</summary>
+    private string? _statusKey;
+
+    private object?[] _statusArgs = [];
+
+    /// <summary>当前图片来源：要么是 i18n key（"剪贴板图片"），要么是文件名（数据，不翻译）。</summary>
+    private string? _sourceKey;
+
+    private string? _sourceLiteral;
+
+    private int _sourceWidth;
+
+    private int _sourceHeight;
+
+    public ScanViewModel()
+    {
+        I18n.Current.Changed += (_, _) => OnLanguageChanged();
+        StatusText = I18n.T("Str.Scan.Hint");
+        SourceName = I18n.T("Str.Scan.NoSource");
+
+        // 剪贴板监听：由"配置开关 + 平台能力"共同决定是否启动（Windows 才有实现）
+        PlatformServices.ClipboardWatcher.Changed += OnClipboardChanged;
+        AppSettingsService.Current.Changed += (_, _) => SyncClipboardWatch();
+        SyncClipboardWatch();
+    }
+
+    /// <summary>
+    /// 一次识别出结果（不管有没有读到码）之后触发：主窗口据此切回「识别」页签。
+    /// <para>
+    /// 只在<b>真的跑完识别</b>时触发 —— 单纯"按了截图键"（比如只截图到剪贴板、或框选中途取消）
+    /// 不该把用户从设置页拽走（用户明确要求的行为）。
+    /// </para>
+    /// </summary>
+    public event EventHandler? RecognitionPresented;
+
+    [ObservableProperty]
+    private Bitmap? _preview;
+
+    /// <summary>预览图的原始像素尺寸：高亮框的坐标换算以它为准（<c>Points</c> 用的是同一坐标系）。</summary>
+    [ObservableProperty]
+    private double _previewWidth;
+
+    [ObservableProperty]
+    private double _previewHeight;
+
+    /// <summary>当前在预览图上高亮的码：-1 表示无。预览图与右侧列表共用它做联动。</summary>
+    [ObservableProperty]
+    private int _highlightedIndex = -1;
+
+    [ObservableProperty]
+    private string _sourceName = string.Empty;
+
+    [ObservableProperty]
+    private string _statusText = string.Empty;
+
+    [ObservableProperty]
+    private bool _isBusy;
+
+    public ObservableCollection<ResultItem> Results { get; } = [];
+
+    public bool HasResults => Results.Count > 0;
+
+    /// <summary>
+    /// 载入图片 → 识别 → 刷新界面。<paramref name="sourceKey"/> 是 i18n key（如框选/剪贴板）。
+    /// </summary>
+    /// <param name="autoCopy">
+    /// 识别到<b>单条</b>结果时要不要把它复制进剪贴板：
+    /// <c>null</c> = 看设置里的「自动复制」开关；<c>true</c> = 强制复制
+    /// （「截图并识别」用它 —— 那个动作的产物就是识别出来的内容）；<c>false</c> = 不许复制。
+    /// </param>
+    public Task LoadAsync(ImageFrame frame, string sourceKey, bool? autoCopy = null) =>
+        LoadCoreAsync(frame, sourceKey, null, autoCopy);
+
+    public async Task LoadFileAsync(string path)
+    {
+        try
+        {
+            var frame = await Task.Run(() => SkiaImageCodec.Load(path));
+            await LoadCoreAsync(frame, null, Path.GetFileName(path), null);
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Str.Scan.ReadFailed", ex.Message);
+        }
+    }
+
+    private async Task LoadCoreAsync(
+        ImageFrame frame,
+        string? sourceKey,
+        string? sourceLiteral,
+        bool? autoCopy)
+    {
+        IsBusy = true;
+        _sourceKey = sourceKey;
+        _sourceLiteral = sourceLiteral;
+        _sourceWidth = frame.Width;
+        _sourceHeight = frame.Height;
+
+        // 新图进来就先退出手动处理面板：那个面板里放的是**上一张图**的预处理层级，
+        // 留着它会让用户"截完图还停在手动处理页"，看不到新结果（用户报的那个 bug）。
+        // 这里同步关掉，识别结果出来时界面已经在正常的结果页上了。
+        if (IsPreprocessOpen)
+        {
+            ClosePreprocess();
+        }
+
+        // 留一份原图给「手动处理图像」用（同一时刻只有这一份，下次识别即替换）
+        _sourceFrame = frame;
+        OnPropertyChanged(nameof(CanPreprocess));
+
+        UpdateSourceName();
+
+        try
+        {
+            ReplacePreview(ResultActions.ToBitmap(frame));
+            PreviewWidth = frame.Width;
+            PreviewHeight = frame.Height;
+
+            // 识别放到线程池，避免大图卡住 UI
+            var outcome = await Task.Run(() => ResultActions.Scan(frame));
+
+            Results.Clear();
+            HighlightedIndex = -1;
+            for (var i = 0; i < outcome.Results.Count; i++)
+            {
+                Results.Add(new ResultItem(outcome.Results[i], i));
+            }
+
+            OnPropertyChanged(nameof(HasResults));
+
+            var settings = AppSettingsService.Current.Settings;
+            var single = outcome.Success && outcome.Results.Count == 1;
+            var only = single ? Results[0] : null;
+
+            // 「自动打开链接」只对"单个 + 确实是链接"生效，且优先于自动复制 ——
+            // 用户开这个开关要的是"直接打开"，而不是"复制完再打开"。
+            var openUrl = single
+                && settings.OpenUrlAutomatically
+                && only!.Content.Kind == ResultContentKind.Url
+                && only.Content.ActionTarget is { Length: > 0 };
+
+            var copied = single && !openUrl && (autoCopy ?? settings.AutoCopySingleResult);
+
+            if (outcome.Success)
+            {
+                // 提示片段用 Func 延迟翻译：换语言后重算状态栏时才会跟着变
+                var hintKey = outcome.Results.Count > 1
+                    ? "Str.Scan.HoverHint"
+                    : openUrl ? "Str.Scan.UrlOpened"
+                    : copied ? "Str.Scan.AutoCopied"
+                    : "Str.Scan.AutoCopyDisabled";
+
+                SetStatus(
+                    "Str.Scan.FoundWithHint",
+                    outcome.Results.Count,
+                    outcome.TotalMs,
+                    (Func<string>)(() => I18n.T(hintKey)));
+            }
+            else
+            {
+                SetStatus("Str.Scan.NoCode", outcome.Results.FirstOrDefault()?.Format ?? "—", outcome.TotalMs);
+            }
+
+            // 单结果的自动动作（都可在设置页关掉）
+            if (openUrl)
+            {
+                var (success, error) = await ResultActions.OpenAsync(only!.Content.ActionTarget!);
+                if (!success)
+                {
+                    SetStatus("Str.Scan.UrlOpenFailed", error ?? string.Empty);
+                }
+            }
+            else if (copied)
+            {
+                await ResultActions.CopyAsync(Results[0].Text);
+            }
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Str.Scan.ScanFailed", ex.Message);
+        }
+        finally
+        {
+            IsBusy = false;
+
+            // 一次"识别"走到这里就算结束了 —— 读到码、没读到、甚至中途抛异常都算，
+            // 这时把主窗口拉回「识别」页：用户要的就是"出结果（或失败提示）时看得到它"，
+            // 而不是"一按截图键就跳页面"（取消框选根本不会进到这里）。
+            RecognitionPresented?.Invoke(this, EventArgs.Empty);
+
+            // 一次识别会临时分配几十 MB（全屏帧 + 预处理层 + 预览位图），而大对象都在 LOH 上，
+            // 不主动回收的话进程会长时间停在峰值（实测 WS 200+ MB）。
+            // 只在大对象刚失效这一刻做一次后台回收，开销可以忽略，也不会卡 UI。
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized, blocking: false, compacting: false);
+        }
+    }
+
+    /// <summary>
+    /// 换预览图，并把旧的那张释放掉。
+    /// <para>
+    /// Avalonia 的 <see cref="Bitmap"/> 持有非托管像素，只靠 GC 终结器回收太慢：
+    /// 一张 2560×1440 的预览就是十几 MB，连续识别几次内存就一路涨。
+    /// 先赋新值（界面立刻切到新图）再释放旧的，避免释放正在显示的图。
+    /// </para>
+    /// </summary>
+    private void ReplacePreview(Bitmap? bitmap)
+    {
+        var previous = Preview;
+        Preview = bitmap;
+
+        if (!ReferenceEquals(previous, bitmap))
+        {
+            (previous as IDisposable)?.Dispose();
+        }
+    }
+
+    // ---- 手动处理图像（任务书 §4：逐层查看预处理 + 自己组合方法） ----
+
+    /// <summary>
+    /// 最近一次识别的原图。打开面板时用它逐层预处理。
+    /// 只保留这一份（全屏约 15 MB），下次识别直接替换 ——— 面板关掉后照样留着，
+    /// 因为用户经常"看完一层再回来调"。
+    /// </summary>
+    private ImageFrame? _sourceFrame;
+
+    private PreprocessSession? _session;
+
+    /// <summary>面板是否可见（也决定键位是否接管）。</summary>
+    [ObservableProperty]
+    private bool _isPreprocessOpen;
+
+    /// <summary>当前这一层的图（面板里的预览）。</summary>
+    [ObservableProperty]
+    private Bitmap? _levelPreview;
+
+    /// <summary>各层标签（"原图"、"原图+decolor"…），下标与 <see cref="_session"/>.Levels 一致。</summary>
+    public ObservableCollection<string> PreprocessLevels { get; } = [];
+
+    /// <summary><c>user/method/*.json</c> 里读出来的方法。</summary>
+    public ObservableCollection<PreprocessRecipe> Methods { get; } = [];
+
+    [ObservableProperty]
+    private PreprocessRecipe? _selectedMethod;
+
+    /// <summary>当前层序号（列表选中项与 <c>J</c>/<c>K</c> 双向同步）。</summary>
+    [ObservableProperty]
+    private int _preprocessLevelIndex = -1;
+
+    /// <summary>面板状态行：当前层 + 这一步的参数。</summary>
+    [ObservableProperty]
+    private string _preprocessHint = string.Empty;
+
+    /// <summary>能不能打开面板：至少识别过一次（有原图在手上）。</summary>
+    public bool CanPreprocess => _sourceFrame is not null;
+
+    [RelayCommand]
+    private void TogglePreprocess()
+    {
+        if (IsPreprocessOpen)
+        {
+            ClosePreprocess();
+            return;
+        }
+
+        if (_sourceFrame is not { } frame)
+        {
+            SetStatus("Str.Scan.PreprocessNeedImage");
+            return;
+        }
+
+        _session = new PreprocessSession(frame);
+        IsPreprocessOpen = true;
+        ReloadMethods();
+        RefreshPreprocessLevels();
+    }
+
+    [RelayCommand]
+    private void ClosePreprocess()
+    {
+        IsPreprocessOpen = false;
+        _session = null;
+
+        if (LevelPreview is { } previous)
+        {
+            LevelPreview = null;
+            previous.Dispose();
+        }
+
+        PreprocessLevels.Clear();
+        PreprocessHint = string.Empty;
+    }
+
+    /// <summary><c>J</c>/<c>K</c>（=<c>↑</c>/<c>↓</c>）：切层。返回是否真的动了（键位据此决定要不要吃掉按键）。</summary>
+    public bool MovePreprocessLevel(int delta)
+    {
+        if (_session is null || !_session.MoveLevel(delta))
+        {
+            return false;
+        }
+
+        RefreshPreprocessLevels();
+        return true;
+    }
+
+    /// <summary><c>PgUp</c>/<c>PgDn</c>：跳首层 / 末层。</summary>
+    public bool JumpPreprocessEdge(bool last)
+    {
+        if (_session is null || !_session.JumpToEdge(last))
+        {
+            return false;
+        }
+
+        RefreshPreprocessLevels();
+        return true;
+    }
+
+    /// <summary><c>H</c>/<c>L</c>（=<c>←</c>/<c>→</c>）：调当前层那一步的参数。</summary>
+    public bool AdjustPreprocessParameter(int delta)
+    {
+        if (_session is null || !_session.AdjustParameter(delta))
+        {
+            return false;
+        }
+
+        RefreshPreprocessLevels();
+        return true;
+    }
+
+    /// <summary>列表里点某一层。</summary>
+    public void SelectPreprocessLevel(int index)
+    {
+        if (_session is null || index < 0)
+        {
+            return;
+        }
+
+        var delta = index - _session.Index;
+        if (delta != 0 && MovePreprocessLevel(delta))
+        {
+            return;
+        }
+
+        // 点击当前层也会走到这里：刷新一下状态即可
+        RefreshPreprocessLevels();
+    }
+
+    [RelayCommand]
+    private void AddPreprocessStep(string? kind)
+    {
+        if (_session is null || !Enum.TryParse<PreprocessKind>(kind, out var value))
+        {
+            return;
+        }
+
+        var stepIndex = _session.AddStep(value);
+        RefreshPreprocessLevels();
+
+        // 新加的这一步对当前图毫无改变（纯灰度图加 decolor 之类）时层列表不会多一层，
+        // 不说一句的话用户只会觉得"加了没反应"。
+        if (!_session.Levels.Any(level => level.StepIndex == stepIndex))
+        {
+            SetStatus("Str.Scan.PreprocessNoEffect", value.ToString().ToLowerInvariant());
+        }
+    }
+
+    [RelayCommand]
+    private void RemovePreprocessStep()
+    {
+        if (_session is null || !_session.RemoveCurrentStep())
+        {
+            return;
+        }
+
+        RefreshPreprocessLevels();
+    }
+
+    [RelayCommand]
+    private void MovePreprocessStepUp() => ShiftPreprocessStep(-1);
+
+    [RelayCommand]
+    private void MovePreprocessStepDown() => ShiftPreprocessStep(1);
+
+    private void ShiftPreprocessStep(int delta)
+    {
+        if (_session is null || !_session.MoveCurrentStep(delta))
+        {
+            return;
+        }
+
+        RefreshPreprocessLevels();
+    }
+
+    /// <summary>对当前这一层重新识别（不动方法，只换结果）。</summary>
+    [RelayCommand]
+    private async Task RescanCurrentLevelAsync()
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        await ScanFrameIntoResultsAsync(_session.Current.Frame);
+    }
+
+    /// <summary>把当前方法存进 <c>user/method/methods.json</c>。</summary>
+    [RelayCommand]
+    private async Task SaveMethodAsync()
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        var directory = PlatformPaths.MethodsDirectory;
+        var name = _session.Recipe.Name;
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            name = MethodStore.SuggestName(directory, I18n.T("Str.Scan.MethodDefaultName"));
+        }
+
+        var recipe = _session.Recipe with { Name = name };
+        var count = await Task.Run(() => MethodStore.Save(directory, recipe));
+
+        if (count < 0)
+        {
+            SetStatus("Str.Scan.MethodSaveFailed", directory);
+            return;
+        }
+
+        _session.UseRecipe(recipe);
+        ReloadMethods();
+        SetStatus("Str.Scan.MethodSaved", name, directory);
+    }
+
+    /// <summary>载入一个已经存在的方法。</summary>
+    [RelayCommand]
+    private void LoadMethod(PreprocessRecipe? recipe)
+    {
+        if (_session is null || recipe is null)
+        {
+            return;
+        }
+
+        _session.UseRecipe(recipe);
+        SelectedMethod = recipe;
+        RefreshPreprocessLevels();
+        SetStatus("Str.Scan.MethodLoaded", recipe.Name);
+    }
+
+    private void ReloadMethods()
+    {
+        Methods.Clear();
+        foreach (var recipe in MethodStore.LoadAll(PlatformPaths.MethodsDirectory))
+        {
+            Methods.Add(recipe);
+        }
+    }
+
+    /// <summary>把 session 的状态刷到界面：层列表、当前层预览、状态行。</summary>
+    private void RefreshPreprocessLevels()
+    {
+        if (_session is not { } session)
+        {
+            return;
+        }
+
+        if (PreprocessLevels.Count != session.Levels.Count)
+        {
+            PreprocessLevels.Clear();
+            foreach (var level in session.Levels)
+            {
+                PreprocessLevels.Add(level.Label);
+            }
+        }
+
+        PreprocessLevelIndex = session.Index;
+
+        // 当前层图像 → 位图；旧的那张立刻释放（全屏一张就是十几 MB）
+        var previous = LevelPreview;
+        LevelPreview = ResultActions.ToBitmap(session.Current.Frame);
+        (previous as IDisposable)?.Dispose();
+
+        var step = session.Current.Step;
+        PreprocessHint = step is null
+            ? I18n.T("Str.Scan.PreprocessOriginal")
+            : I18n.F("Str.Scan.PreprocessStep", session.Index, session.Levels.Count - 1, DescribeStep(step));
+    }
+
+    /// <summary>参数的稳定描述（技术量，不翻译）。</summary>
+    private static string DescribeStep(PreprocessStep step) => step.Kind switch
+    {
+        PreprocessKind.Decolor => $"decolor · sat {step.SaturationThreshold}",
+        PreprocessKind.Contrast => $"contrast · tail {step.ContrastTailPermille}‰",
+        PreprocessKind.Median => $"median · r{step.MedianRadius}",
+        PreprocessKind.Adaptive => $"adaptive · 1/{step.AdaptiveRadiusDivisor} · bias {step.AdaptiveBias}",
+        _ => step.Label,
+    };
+
+    /// <summary>只对给定的一帧跑识别并刷新结果列表（手动处理面板用）。</summary>
+    private async Task ScanFrameIntoResultsAsync(ImageFrame frame)
+    {
+        IsBusy = true;
+        try
+        {
+            var outcome = await Task.Run(() => ResultActions.Scan(frame));
+
+            Results.Clear();
+            HighlightedIndex = -1;
+            for (var index = 0; index < outcome.Results.Count; index++)
+            {
+                Results.Add(new ResultItem(outcome.Results[index], index));
+            }
+
+            OnPropertyChanged(nameof(HasResults));
+
+            if (outcome.Success)
+            {
+                SetStatus("Str.Scan.Found", outcome.Results.Count, outcome.TotalMs);
+            }
+            else
+            {
+                SetStatus("Str.Scan.NoCode", "—", outcome.TotalMs);
+            }
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Str.Scan.ScanFailed", ex.Message);
+        }
+        finally
+        {
+            IsBusy = false;
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized, blocking: false, compacting: false);
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenFilesAsync()
+    {
+        var files = await ResultActions.PickImagesAsync();
+        if (files.Count == 0)
+        {
+            return;
+        }
+
+        // 多选时逐个识别，结果累加
+        Results.Clear();
+        foreach (var file in files)
+        {
+            await LoadFileAsync(file);
+        }
+    }
+
+    [RelayCommand]
+    private async Task FromClipboardAsync() => await LoadFromClipboardAsync(quiet: false);
+
+    private bool _readingClipboard;
+
+    /// <summary>
+    /// 读剪贴板里的图片并识别。
+    /// <paramref name="quiet"/> = 由剪贴板监听自动触发：里面没有图片时保持沉默，不去改状态栏打扰用户。
+    /// </summary>
+    private async Task LoadFromClipboardAsync(bool quiet)
+    {
+        if (_readingClipboard || IsBusy)
+        {
+            return;
+        }
+
+        if (!quiet)
+        {
+            SetStatus("Str.Scan.ClipboardEmpty");
+        }
+
+        var clipboard = Services.TopLevelAccessor.GetClipboard();
+        if (clipboard is null)
+        {
+            return;
+        }
+
+        _readingClipboard = true;
+
+        try
+        {
+            using var image = await clipboard.TryGetBitmapAsync();
+            if (image is null)
+            {
+                return;
+            }
+
+            using var stream = new MemoryStream();
+            // Avalonia 12：Save(Stream, int?) 已过时，改为显式给编码选项
+            image.Save(stream, new PngBitmapEncoderOptions());
+            stream.Position = 0;
+
+            var frame = await Task.Run(() => SkiaImageCodec.FromEncoded(stream));
+            await LoadAsync(frame, "Str.Scan.SourceClipboard");
+        }
+        catch (Exception ex)
+        {
+            if (!quiet)
+            {
+                SetStatus("Str.Scan.ClipboardReadFailed", ex.Message);
+            }
+        }
+        finally
+        {
+            _readingClipboard = false;
+        }
+    }
+
+    /// <summary>按「配置开关 + 平台能力」启停剪贴板监听；任一不满足就停掉。</summary>
+    private void SyncClipboardWatch()
+    {
+        var watcher = PlatformServices.ClipboardWatcher;
+
+        if (watcher.IsSupported && AppSettingsService.Current.Settings.WatchClipboard)
+        {
+            watcher.Start();
+        }
+        else
+        {
+            watcher.Stop();
+        }
+    }
+
+    /// <summary>剪贴板变了（可能在后台线程）→ 只投递，真正的读取放到 UI 线程做。</summary>
+    private void OnClipboardChanged(object? sender, EventArgs e) =>
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => _ = LoadFromClipboardAsync(quiet: true));
+
+    /// <summary>
+    /// 截图并识别：框选 → 识别 → **把识别出来的内容复制进剪贴板**（单结果时）。
+    /// 这个动作的产物是"识别内容"；想要剪贴板里放<b>图片</b>请用「截图到剪贴板」。
+    /// </summary>
+    [RelayCommand]
+    private async Task CaptureRegionAsync()
+    {
+        if (await SelectRegionAsync() is not { } selection)
+        {
+            return;
+        }
+
+        await LoadAsync(selection.Frame, "Str.Scan.SourceRegion", autoCopy: true);
+    }
+
+    /// <summary>
+    /// 框选截图 → <b>直接贴到屏幕上</b>（不识别、不经过剪贴板）。
+    /// 和「截图到剪贴板 + 再按贴图键」相比少一步，适合"边看边对照"的用法。
+    /// </summary>
+    [RelayCommand]
+    private async Task CaptureRegionAndPinAsync()
+    {
+        if (await SelectRegionAsync() is not { } selection)
+        {
+            return;
+        }
+
+        try
+        {
+            var bitmap = ResultActions.ToBitmap(selection.Frame);
+            PinManager.Current.Pin(bitmap, "capture.png", ownsImage: true, targetRegion: selection.ScreenRect);
+            SetStatus("Str.Pin.Status.Pinned");
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Str.Pin.Status.PinFailed", ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// 框选截图 → <b>只</b>把图片放进剪贴板，不识别（"框完即复制到剪贴板"）。
+    /// 这条绑 F1、上面那条绑 F2，就是"纯截图"与"截图并识码"的分工。
+    /// </summary>
+    [RelayCommand]
+    private async Task CaptureRegionToClipboardAsync()
+    {
+        if (await SelectRegionAsync() is not { } selection)
+        {
+            return;
+        }
+
+        var copied = await CopyFrameToClipboardAsync(selection.Frame);
+        RememberCapturePosition(selection, copied);
+
+        SetStatus(copied
+            ? "Str.Scan.CopiedImageToClipboard"
+            : "Str.Scan.CopyFailed");
+    }
+
+    /// <summary>
+    /// 记下这次截图的屏幕区域 —— 之后贴图时若剪贴板里还是它，就贴回原来的位置。
+    /// 取序号必须在<b>写完剪贴板之后</b>：我们自己那次写入也会让序号 +1。
+    /// </summary>
+    private static void RememberCapturePosition(RegionSelection selection, bool copied)
+    {
+        if (!copied || selection.ScreenRect is not { } region)
+        {
+            return;
+        }
+
+        CaptureMemory.Remember(region, PlatformServices.ClipboardWatcher.SequenceNumber);
+    }
+
+    /// <summary>
+    /// 把剪贴板里的<b>文本</b>转成码：码制取设置里的"快捷转码"（默认二维码），生成的图片进剪贴板
+    /// （同样带 PNG 文件项，所以在资源管理器里也能直接粘贴）。
+    /// </summary>
+    [RelayCommand]
+    private async Task ClipboardToCodeAsync()
+    {
+        var clipboard = Services.TopLevelAccessor.GetClipboard();
+        if (clipboard is null)
+        {
+            SetStatus("Str.Scan.ClipboardEmpty");
+            return;
+        }
+
+        string? text;
+
+        try
+        {
+            text = await clipboard.TryGetTextAsync();
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Str.Scan.ClipboardReadFailed", ex.Message);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            SetStatus("Str.Scan.ClipboardNoText");
+            return;
+        }
+
+        var format = AppSettingsService.Current.Settings.QuickCodeFormat;
+
+        try
+        {
+            if (BarcodeEncoder.ValidateContent(format, text) is { } problem)
+            {
+                // Core 的校验消息是中文（CLI 也用它），这里原样透传
+                SetExternalStatus(problem);
+                return;
+            }
+
+            var request = new BarcodeGenerationRequest
+            {
+                Text = text,
+                Format = format,
+                Width = 480,
+                Margin = 4,
+                ErrorCorrection = "M",
+            };
+
+            var frame = BarcodeRenderer.ToImageFrame(BarcodeEncoder.Encode(request), request);
+
+            SetStatus(await ClipboardWriter.CopyAsync(frame, "barcode")
+                ? "Str.Scan.CodedToClipboard"
+                : "Str.Scan.CopyFailed", format);
+        }
+        catch (Exception ex)
+        {
+            SetExternalStatus(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// 让用户框选一块区域并返回像素帧；取消 / 平台不支持 / 出错时返回 <c>null</c>（状态栏已写好原因）。
+    /// </summary>
+    private async Task<RegionSelection?> SelectRegionAsync()
+    {
+        SetStatus("Str.Scan.Capturing");
+        IsBusy = true;
+
+        try
+        {
+            var capture = PlatformServices.ScreenCapture;
+            if (!capture.IsSupported)
+            {
+                SetStatus("Str.Scan.CaptureUnsupported", capture.Description);
+                return null;
+            }
+
+            // Linux：直接委托 grim+slurp 之类的工具框选
+            if (!OperatingSystem.IsWindows())
+            {
+                var region = await capture.CaptureRegionAsync();
+                if (region is null)
+                {
+                    if (capture.LastError is { } error) SetStatus("Str.Scan.CaptureError", error);
+                    else SetStatus("Str.Scan.CaptureCancelled");
+                }
+
+                // 委托外部工具（grim/slurp）拿不到选区在屏幕上的位置 —— 那种情况贴图只能居中
+                return region is null ? null : new RegionSelection(region, null);
+            }
+
+            // Windows：自己抓整屏，再用选区窗口让用户拖框
+            var desktop = await capture.CaptureDesktopAsync(CursorScreenRect());
+            if (desktop is null)
+            {
+                SetStatus("Str.Scan.CaptureFailed");
+                return null;
+            }
+
+            // 进遮罩前前台是"铺满整屏的窗口"（独占全屏游戏 / 全屏播放器）时，第一次抓屏拿不到它的画面：
+            // 遮罩一显示就会把它挤出独占全屏，等它重新合成后再抓一次，才能截到它本身，
+            // 而不是截到"它下面那些窗口"。普通窗口走原来的路，不受影响。
+            var fullscreenBeforeOverlay = false;
+            var exclusiveTarget = IntPtr.Zero;
+            Kscan.Platform.Abstractions.ScreenRect? exclusiveTargetRect = null;
+
+            if (PlatformServices.ForegroundApp.GetCursorPosition() is { } cursor
+                && PlatformServices.ForegroundApp.GetRectAt(cursor.X, cursor.Y) is { } foreground)
+            {
+                fullscreenBeforeOverlay = foreground.Width >= desktop.Width - 2
+                                          && foreground.Height >= desktop.Height - 2;
+
+                if (fullscreenBeforeOverlay)
+                {
+
+                    // 记住这个全屏窗口：独占全屏被挤出画面后，遮罩上就只剩它下面那些窗口可识别，
+                    // 光标落在它的矩形里时应当仍然认它。
+                    exclusiveTarget = PlatformServices.ForegroundApp.GetWindowHandleAt(cursor.X, cursor.Y);
+                    exclusiveTargetRect = foreground;
+                }
+            }
+
+
+            var selected = await Services.RegionSelector.SelectAsync(
+                desktop,
+                Kscan.App.Services.AppSettingsService.Current.Settings.CaptureWindowDetection,
+                fullscreenBeforeOverlay,
+                exclusiveTarget,
+                exclusiveTargetRect);
+            if (selected is null)
+            {
+                SetStatus("Str.Scan.RegionCancelled");
+            }
+
+            // 全屏快照刚释放：排队一次"空闲时回收 + 压缩大对象堆"（延后 1.5 秒、线程池上跑），
+            // 只影响之后的任务管理器读数，不会拖慢这一轮的识别
+            Kscan.App.Services.MemoryHygiene.CompactWhenIdle();
+
+            return selected;
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Str.Scan.CaptureError", ex.Message);
+            return null;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// 把一张帧写进剪贴板 —— 截图链路的收尾：**不管识不识别，图片本身都要落到剪贴板上**。
+    /// 写完必须 <c>MarkHandled</c>，否则开了剪贴板监听会把刚截的这张图再识别一遍。
+    /// </summary>
+
+    /// <summary>
+    /// 光标所在显示器的物理矩形（BMP 坐标）；拿不到返回 null（平台会退回"整个虚拟桌面"）。
+    /// 只抓这一块，遮罩也只铺这一块 → 画布坐标与屏幕坐标 1:1，多屏/混合 DPI 都不会错位。
+    /// </summary>
+    private static Kscan.Platform.Abstractions.ScreenRect? CursorScreenRect()
+    {
+        try
+        {
+            if (Services.TopLevelAccessor.ActiveWindow?.Screens is not { } screens)
+            {
+                return null;
+            }
+
+            var cursor = PlatformServices.ForegroundApp.GetCursorPosition();
+            var screen = (cursor is { } point ? screens.ScreenFromPoint(new Avalonia.PixelPoint(point.X, point.Y)) : null)
+                         ?? screens.Primary;
+            if (screen is null)
+            {
+                return null;
+            }
+
+            var b = screen.Bounds;
+            return new Kscan.Platform.Abstractions.ScreenRect(b.X, b.Y, b.Width, b.Height);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    private static Task<bool> CopyFrameToClipboardAsync(ImageFrame frame) =>
+        ClipboardWriter.CopyAsync(frame, "screenshot");
+
+    /// <summary>把当前预览图贴到屏幕上（无边框置顶窗口，可拖动 / 缩放 / 穿透）。</summary>
+    [RelayCommand]
+    private void PinImage()
+    {
+        if (Preview is not { } preview)
+        {
+            return;
+        }
+
+        try
+        {
+            PinManager.Current.Pin(preview, _sourceLiteral);
+            SetStatus("Str.Pin.Status.Pinned");
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Str.Pin.Status.PinFailed", ex.Message);
+        }
+    }
+
+    /// <summary>复制某一项的内容：列表里的「复制」按钮与预览图上直接点框都走这里。</summary>
+    [RelayCommand]
+    private async Task CopyAsync(ResultItem? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        SetStatus(await ResultActions.CopyAsync(item.Text)
+            ? "Str.Scan.CopiedFromBox"
+            : "Str.Scan.CopyFailed");
+    }
+
+    [RelayCommand]
+    private static async Task RunActionAsync(ResultItem? item)
+    {
+        if (item?.Content.ActionTarget is not { Length: > 0 } target)
+        {
+            return;
+        }
+
+        var (success, error) = await ResultActions.OpenAsync(target);
+        if (!success)
+        {
+            item.ActionError = error;
+        }
+    }
+
+    /// <summary>状态来自 Core / 异常信息（中文、不参与 i18n），换语言时保持原样。</summary>
+    private void SetExternalStatus(string text)
+    {
+        _statusKey = null;
+        _statusArgs = [];
+        StatusText = text;
+    }
+
+    /// <summary>记下 key 与参数，这样切换语言时能把状态栏原样重算成新语言。</summary>
+    private void SetStatus(string key, params object?[] args)
+    {
+        _statusKey = key;
+        _statusArgs = args;
+        StatusText = I18n.F(key, args);
+    }
+
+    private void UpdateSourceName()
+    {
+        var prefix = _sourceKey is not null ? I18n.T(_sourceKey) : _sourceLiteral;
+        SourceName = string.IsNullOrEmpty(prefix)
+            ? I18n.T("Str.Scan.NoSource")
+            : $"{prefix} · {_sourceWidth}×{_sourceHeight}";
+    }
+
+    private void OnLanguageChanged()
+    {
+        if (_statusKey is not null)
+        {
+            StatusText = I18n.F(_statusKey, _statusArgs);
+        }
+
+        UpdateSourceName();
+
+        foreach (var item in Results)
+        {
+            item.RefreshLocalizedText();
+        }
+    }
+}
+
+/// <summary>结果列表里的一项，同时是预览图高亮层的输入（<see cref="IResultMarker"/>）。</summary>
+public sealed partial class ResultItem : ObservableObject, IResultMarker
+{
+    public ResultItem(ScanResult result, int index)
+    {
+        Text = result.Text;
+        Format = result.Format;
+        Points = result.Points;
+        Index = index;
+        Content = ResultContent.Parse(result.Text);
+    }
+
+    public string Text { get; }
+
+    public string Format { get; }
+
+    /// <summary>码在图像中的角点（像素坐标）；1D 码常只有两个端点。</summary>
+    public IReadOnlyList<PointD> Points { get; }
+
+    public int Index { get; }
+
+    public ResultContent Content { get; }
+
+    /// <summary>内容分类名。走 i18n（Core 的 <c>KindLabel</c> 是给 CLI 的中文默认）。</summary>
+    public string KindLabel => I18n.T($"Str.Kind.{Content.Kind}");
+
+    public string Title => Content.Title ?? Content.Raw;
+
+    public bool HasAction => Content.HasAction;
+
+    /// <summary>一键动作按钮文案：与 <see cref="ResultContentKind"/> 一一对应。</summary>
+    public string ActionLabel => Content.Kind switch
+    {
+        ResultContentKind.Url => I18n.T("Str.Action.OpenUrl"),
+        ResultContentKind.Email => I18n.T("Str.Action.ComposeEmail"),
+        ResultContentKind.Phone => I18n.T("Str.Action.Call"),
+        ResultContentKind.Sms => I18n.T("Str.Action.SendSms"),
+        ResultContentKind.Geo => I18n.T("Str.Action.ViewOnMap"),
+        ResultContentKind.Base64 => I18n.T("Str.Action.ViewDecoded"),
+        _ => I18n.T("Str.Action.Open"),
+    };
+
+    /// <summary>列表里显示的「格式：QR_CODE」。</summary>
+    public string FormatLabel => I18n.F("Str.Scan.FormatLabel", Format);
+
+    [ObservableProperty]
+    private string? _actionError;
+
+    /// <summary>语言切换后刷新派生出来的文案（属性值本身没变，得手动通知）。</summary>
+    public void RefreshLocalizedText()
+    {
+        OnPropertyChanged(nameof(KindLabel));
+        OnPropertyChanged(nameof(ActionLabel));
+        OnPropertyChanged(nameof(FormatLabel));
+    }
+}

@@ -1,0 +1,96 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Kscan.App.Views.PinWindow"
+        Background="Transparent"
+        FontFamily="{DynamicResource KscanFontFamily}"
+        ShowInTaskbar="False">
+    <!--
+        内容随窗口拉伸；窗口尺寸由代码维护（旋转后 = 图片的外接矩形），
+        所以 Picture 用**显式宽高 + 居中**，围绕自身中心做旋转/镜像变换。
+    -->
+    <Window.Styles>
+        <!-- 刚贴上的提示边框：呼吸式闪烁，肉眼扫一眼就知道"这张是新的" -->
+        <Style Selector="Border.newPin">
+            <Style.Animations>
+                <Animation Duration="0:0:1.8" IterationCount="INFINITE">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="Opacity" Value="1" />
+                    </KeyFrame>
+                    <KeyFrame Cue="50%">
+                        <Setter Property="Opacity" Value="0.12" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="Opacity" Value="1" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+    </Window.Styles>
+
+    <Grid>
+        <!-- 缩放时用高质量插值：默认的最近邻在连续缩放时会一跳一跳的 -->
+        <Image x:Name="Picture"
+               Stretch="Fill"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               RenderTransformOrigin="0.5,0.5"
+               RenderOptions.BitmapInterpolationMode="HighQuality" />
+
+        <!--
+            刚贴上来时闪的边框；用户一开始拖动它就消失（"这张我接手了"）。
+            不吃鼠标事件：拖动还是拖窗口本身。
+        -->
+        <Border x:Name="NewPinFrame"
+                Classes="newPin"
+                BorderThickness="3"
+                BorderBrush="#FF2D8CF0"
+                IsHitTestVisible="False"
+                IsVisible="False" />
+
+        <!--
+            "已被点击提到最前"的持久绿框：只要还在顶层态就长亮，鼠标移开也不熄灭。
+            与下面的悬停橙框是两层：悬停时橙框盖住绿框，鼠标移开恢复绿框。
+        -->
+        <Border x:Name="RaisedFrame"
+                BorderThickness="3"
+                BorderBrush="#FF3DDC84"
+                IsHitTestVisible="False"
+                IsVisible="False" />
+
+        <!--
+            悬停高亮框：管理窗口里光标停在缩略图/分组框上时，屏幕上对应的贴图亮一圈。
+            固定<b>橙色</b>：主题强调色和"未高亮时的窗口"太接近，看不出差别。
+            静态高亮（不闪烁），与上面"刚贴上"的呼吸框互不影响；不吃鼠标事件。
+        -->
+        <Border x:Name="HighlightFrame"
+                BorderThickness="3"
+                BorderBrush="#FFFF9500"
+                IsHitTestVisible="False"
+                IsVisible="False" />
+
+        <!--
+            悬停提示：光标停在贴图上时告诉用户"能转"。不吃鼠标事件，也不挡画面。
+            淡入淡出由代码控制，不常驻。
+        -->
+        <Border x:Name="RotateHint"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Margin="0,6,0,0"
+                Padding="10,4"
+                CornerRadius="10"
+                Background="#CC101014"
+                IsHitTestVisible="False"
+                IsVisible="False"
+                Opacity="0">
+            <Border.Transitions>
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+                </Transitions>
+            </Border.Transitions>
+            <TextBlock x:Name="RotateHintText"
+                       FontSize="12"
+                       Foreground="#FFF0F0F0"
+                       TextWrapping="NoWrap" />
+        </Border>
+    </Grid>
+</Window>

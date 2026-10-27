@@ -1,0 +1,18 @@
+{
+  "startSilently": false,
+  "minimizeToTray": false,
+  "closeToTray": true,
+  "hotkeys": [
+    { "actionId": "captureRegionToClipboard", "keys": "F1" },
+    { "actionId": "captureRegion", "keys": "Ctrl+F1" },
+    { "actionId": "pinClipboard", "keys": "F3" },
+    { "actionId": "closeAllPins", "keys": "Ctrl+Q" },
+    { "actionId": "togglePinTopmost", "keys": "Ctrl+Shift+F3" },
+    { "actionId": "openPinManager", "keys": "Ctrl+Shift+F4" },
+    { "actionId": "closePinUnderCursor", "keys": "Alt+Q" },
+    { "actionId": "captureRegionAndPin", "keys": "Ctrl+F3" },
+    { "actionId": "scrollCapture", "keys": "Ctrl+Shift+F2" },
+    { "actionId": "activate", "keys": "Ctrl+Alt+F5" },
+    { "actionId": "pickExcludedApp", "keys": "Ctrl+Alt+Backspace" }
+  ]
+}
