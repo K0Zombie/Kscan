@@ -7,6 +7,10 @@ using Avalonia.Media;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
 using Kscan.App.Views;
+using Kscan.App.Services;
+using Kscan.Core.Configuration;
+using Avalonia.Input;
+using Kscan.Platform;
 
 if (!OperatingSystem.IsWindows()) return;
 File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "portable"), "");
@@ -39,10 +43,29 @@ sealed class NativeCheckApp : Application
             try
             {
                 var screens = window.Screens.All.Select(s => new ScreenInfo(s.Bounds, s.Scaling)).ToArray();
-                var result = await RecordingRegionSelector.SelectAsync(screens);
+                var result = await RecordingRegionSelector.SelectAsync(screens, RecordingKind.Gif,
+                    excludeFromCapture: !Environment.GetCommandLineArgs().Contains("--visible-hints"));
                 selecting = false;
                 var ok = result is { Width: >= 16, Height: >= 16 } && !lostFocus && selectedFrames >= 4;
                 Console.WriteLine($"{(ok ? "PASS" : "FAIL")}: selection={result}; liveFrames={selectedFrames}; focusLost={lostFocus}");
+                if (ok && Environment.GetCommandLineArgs().Contains("--record"))
+                {
+                    var watch = System.Diagnostics.Stopwatch.StartNew();
+                    var pointer = PlatformServices.CursorCapture.Capture();
+                    Console.WriteLine($"CURSOR: physicalSize={pointer?.Image.Width}x{pointer?.Image.Height}; left={pointer?.Left}; top={pointer?.Top}");
+                    var session = await RecordingSession.StartAsync(RecordingKind.Gif, result, 15,
+                        new RecordingSettings { DrawMouse = true }, Path.Combine(AppContext.BaseDirectory, "proof-recordings"));
+                    Console.WriteLine($"READY: milliseconds={watch.ElapsedMilliseconds}");
+                    await Task.Delay(2500);
+                    await session.StopAsync();
+                    Console.WriteLine($"SAVED: {session.Output}");
+                    var copied = await ClipboardWriter.CopyFileAsync(session.Output);
+                    using var data = await window.Clipboard!.TryGetDataAsync();
+                    var files = data is null ? null : await data.TryGetFilesAsync();
+                    var containsGif = files?.Any(f => f.Name == Path.GetFileName(session.Output)) == true;
+                    Console.WriteLine($"CLIPBOARD: copied={copied}; savedGifPresent={containsGif}");
+                    ok &= copied && containsGif;
+                }
                 timer.Stop(); desktop.Shutdown(ok ? 0 : 1);
             }
             catch (Exception ex) { Console.WriteLine(ex); timer.Stop(); desktop.Shutdown(1); }

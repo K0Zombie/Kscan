@@ -71,9 +71,9 @@ internal static class RecordingManager
             if (kind != RecordingKind.Audio)
             {
                 _window?.Hide();
-                await Task.Delay(150); // Let the settings window disappear before live window detection starts.
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Render);
                 var all = screens.All.Select(s => new ScreenInfo(s.Bounds, s.Scaling)).ToArray();
-                region = await RecordingRegionSelector.SelectAsync(all);
+                region = await RecordingRegionSelector.SelectAsync(all, kind);
                 if (region is null) { _window?.Show(); return; }
                 if (region.Value.Width < 16 || region.Value.Height < 16) throw new ArgumentException("录制区域至少为16×16像素。");
             }

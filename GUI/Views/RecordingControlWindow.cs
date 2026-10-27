@@ -84,7 +84,10 @@ internal sealed class RecordingControlWindow : Window
         try
         {
             await Session.StopAsync();
-            var choice = await PinDialog.ChooseRecordingAsync(this, "录制完成", Session.Output, "打开预览", "打开目录", "关闭");
+            var gif = Session.Kind == RecordingKind.Gif;
+            var copied = gif && await ClipboardWriter.CopyFileAsync(Session.Output);
+            var message = Session.Output + (gif ? copied ? "\nGIF 已复制到剪贴板。" : "\n文件已保存，但自动复制到剪贴板未成功。" : "");
+            var choice = await PinDialog.ChooseRecordingAsync(this, "录制完成", message, "打开预览", "打开目录", "关闭");
             if (choice == 0) Open(Session.Output);
             else if (choice == 1) Open(Path.GetDirectoryName(Session.Output)!);
         }

@@ -13,6 +13,31 @@ namespace Kscan.App.Tests;
 public sealed class RecordingTests
 {
     [Theory]
+    [InlineData("frame=1", true)]
+    [InlineData("frame=0", false)]
+    [InlineData("out_time_us=23000", true)]
+    [InlineData("out_time_ms=0", false)]
+    [InlineData("progress=continue", false)]
+    [InlineData("out_time_us=N/A", false)]
+    public void Startup_waits_for_actual_encoded_output(string progress, bool expected) =>
+        Assert.Equal(expected, RecordingSession.IsReadyProgress(progress));
+
+    [Fact]
+    public void Recording_cursor_keeps_alpha_and_premultiplies_colors()
+    {
+        byte[] source = [100, 200, 50, 128, 255, 255, 255, 0, 10, 20, 30, 255];
+        Assert.Equal(new byte[] { 50, 100, 25, 128, 0, 0, 0, 0, 10, 20, 30, 255 }, RecordingCursor.Premultiply(source));
+        Assert.Equal(100, source[0]);
+    }
+
+    [Fact]
+    public void Selection_hint_identifies_recording_kind()
+    {
+        Assert.Contains("GIF", RecordingRegionSelector.SelectionLabel(RecordingKind.Gif));
+        Assert.Contains("视频", RecordingRegionSelector.SelectionLabel(RecordingKind.Video));
+        Assert.Contains("Esc", RecordingRegionSelector.SelectionLabel(RecordingKind.Gif));
+    }
+    [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public async Task Audio_pipe_close_is_only_ignored_during_normal_finalization(bool finishing)

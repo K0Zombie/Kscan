@@ -11,8 +11,10 @@ namespace Kscan.App.Views;
 /// <summary>Passive live borders: no screenshot, input activation, or screenshot selector.</summary>
 internal static class RecordingRegionSelector
 {
-    internal static SelectionWindow CreateOverlay(ScreenInfo screen) => new(screen);
-    internal static async Task<PixelRect?> SelectAsync(IReadOnlyList<ScreenInfo> screens)
+    internal static SelectionWindow CreateOverlay(ScreenInfo screen, RecordingKind kind = RecordingKind.Video) => new(screen, kind);
+    internal static string SelectionLabel(RecordingKind kind) => kind == RecordingKind.Gif ? "GIF 录制 · 拖动框选 · Esc 取消" : "视频录制 · 拖动框选 · Esc 取消";
+    internal static async Task<PixelRect?> SelectAsync(IReadOnlyList<ScreenInfo> screens, RecordingKind kind = RecordingKind.Video,
+        bool excludeFromCapture = true)
     {
         if (screens.Count == 0) return null;
         var desktop = new PixelRect(screens.Min(s => s.Bounds.X), screens.Min(s => s.Bounds.Y),
@@ -41,9 +43,9 @@ internal static class RecordingRegionSelector
         {
             foreach (var screen in screens)
             {
-                var window = CreateOverlay(screen);
+                var window = CreateOverlay(screen, kind);
                 windows.Add(window); window.Show();
-                RecordingDisplay.Exclude(window);
+                if (excludeFromCapture) RecordingDisplay.Exclude(window);
                 if (!PlatformServices.ClickThrough.TrySetEnabled(window.TryGetPlatformHandle()!.Handle, true))
                     throw new InvalidOperationException("录制选区层无法启用鼠标穿透。");
                 if (window.ActualTransparencyLevel != WindowTransparencyLevel.Transparent)
@@ -71,6 +73,7 @@ internal static class RecordingRegionSelector
                         {
                             var selection = RecordingSelectionGeometry.IsDrag(origin, current)
                                 ? RecordingSelectionGeometry.Drag(origin, current, desktop) : hovered;
+                            GuiLog.Write($"recording: selection release from={origin} to={current} area={selection}");
                             completion.TrySetResult(selection is { Width: >= 16, Height: >= 16 } ? selection : null);
                             return;
                         }
@@ -88,7 +91,7 @@ internal static class RecordingRegionSelector
                         }
                         area = hovered;
                     }
-                    foreach (var window in windows) window.SetSelection(area);
+                    foreach (var window in windows) window.SetSelection(area, position);
                 }
                 catch (Exception ex) { completion.TrySetException(ex); }
             };
@@ -107,7 +110,7 @@ internal static class RecordingRegionSelector
     {
         internal ScreenInfo Screen { get; }
         private readonly SelectionVisual _visual;
-        internal SelectionWindow(ScreenInfo screen)
+        internal SelectionWindow(ScreenInfo screen, RecordingKind kind)
         {
             Screen = screen;
             WindowDecorations = WindowDecorations.None;
@@ -116,7 +119,7 @@ internal static class RecordingRegionSelector
             Background = Brushes.Transparent; TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
             Width = screen.Bounds.Width / screen.Scaling; Height = screen.Bounds.Height / screen.Scaling;
             Position = screen.Bounds.Position;
-            _visual = new SelectionVisual(screen); Content = _visual;
+            _visual = new SelectionVisual(screen, SelectionLabel(kind)); Content = _visual;
             Win32Properties.AddWindowStylesCallback(this, NoActivation);
         }
         private static (uint, uint) NoActivation(uint style, uint extended) => (style, extended | 0x08000000u | 0x80u);
@@ -125,19 +128,35 @@ internal static class RecordingRegionSelector
             base.OnOpened(e);
             SetWindowPos(TryGetPlatformHandle()!.Handle, new IntPtr(-1), Screen.Bounds.X, Screen.Bounds.Y, Screen.Bounds.Width, Screen.Bounds.Height, 0x10);
         }
-        internal void SetSelection(PixelRect? selection) { if (_visual.Selection == selection) return; _visual.Selection = selection; _visual.InvalidateVisual(); }
+        internal void SetSelection(PixelRect? selection, PixelPoint cursor) { _visual.Selection = selection; _visual.CursorPosition = cursor; _visual.InvalidateVisual(); }
     }
 
-    private sealed class SelectionVisual(ScreenInfo screen) : Control
+    private sealed class SelectionVisual(ScreenInfo screen, string label) : Control
     {
         internal PixelRect? Selection { get; set; }
+        internal PixelPoint? CursorPosition { get; set; }
+        private readonly FormattedText _label = new(label, System.Globalization.CultureInfo.CurrentUICulture,
+            FlowDirection.LeftToRight, Typeface.Default, 15, Brushes.White);
         public override void Render(DrawingContext context)
         {
-            if (Selection is not { } selection) return;
             var scale = screen.Scaling;
+            using var clip = context.PushClip(new Rect(Bounds.Size));
+            if (CursorPosition is { } cursor && screen.Bounds.Contains(cursor))
+            {
+                var width = _label.Width + 24;
+                var height = _label.Height + 16;
+                var x = (cursor.X - screen.Bounds.X) / scale + 20;
+                var y = (cursor.Y - screen.Bounds.Y) / scale + 24;
+                if (x + width > Bounds.Width) x -= width + 40;
+                if (y + height > Bounds.Height) y -= height + 48;
+                x = Math.Max(0, x); y = Math.Max(0, y);
+                context.DrawRectangle(Brushes.DarkSlateBlue, new Pen(Brushes.DeepSkyBlue, 1), new Rect(x, y, width, height), 6, 6);
+                context.DrawText(_label, new Point(x + 12, y + 8));
+            }
+            if (Selection is not { } selection) return;
             var local = new Rect((selection.X - screen.Bounds.X) / scale, (selection.Y - screen.Bounds.Y) / scale,
                 selection.Width / scale, selection.Height / scale);
-            using (context.PushClip(new Rect(Bounds.Size))) context.DrawRectangle(null, new Pen(Brushes.DeepSkyBlue, 2 / scale), local);
+            context.DrawRectangle(null, new Pen(Brushes.DeepSkyBlue, 2 / scale), local);
         }
     }
     [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int key);

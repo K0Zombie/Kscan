@@ -17,6 +17,7 @@
   -->
   <ItemGroup>
     <InternalsVisibleTo Include="Kscan.Platform.Tests" />
+    <InternalsVisibleTo Include="Kscan.App.Tests" />
   </ItemGroup>
 
   <ItemGroup>

@@ -8,6 +8,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../Kscan.Platform.Tests/CommandLauncherTests.cs" Link="CommandLauncherTests.cs" />
+    <Compile Include="../Kscan.Platform.Tests/CursorSizePolicyTests.cs" Link="CursorSizePolicyTests.cs" />
+    <Compile Include="../Kscan.Core.Tests/CursorMarkerTests.cs" Link="CursorMarkerTests.cs" />
     <PackageReference Include="Avalonia.Headless.XUnit" Version="12.1.4" />
     <PackageReference Include="Avalonia.Skia" Version="12.1.4" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />

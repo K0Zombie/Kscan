@@ -10,6 +10,7 @@ internal sealed class RecordingSession
 {
     private readonly Process _process;
     private readonly RecordingAudio? _audio;
+    private RecordingCursor.Lease? _cursor;
     private readonly string _partial;
     private readonly Queue<string> _errors = new();
     private readonly Stopwatch _clock = Stopwatch.StartNew();
@@ -28,17 +29,17 @@ internal sealed class RecordingSession
     internal static List<string> BuildArguments(RecordingKind kind, PixelRect? region, int fps,
         RecordingSettings settings, string? audioPipe, string partial)
     {
-        var args = new List<string> { "-hide_banner", "-loglevel", "warning", "-n" };
+        var args = new List<string> { "-hide_banner", "-loglevel", "warning", "-n", "-progress", "pipe:1", "-stats_period", "0.05", "-nostats" };
         if (kind != RecordingKind.Audio)
         {
             var r = region ?? throw new ArgumentException("录制画面需要选区。");
             args.AddRange(["-rtbufsize", "33554432", "-f", "gdigrab", "-framerate", fps.ToString(),
                 "-probesize", "32", "-analyzeduration", "0",
-                "-draw_mouse", settings.DrawMouse ? "1" : "0", "-offset_x", r.X.ToString(), "-offset_y", r.Y.ToString(),
+                "-draw_mouse", "0", "-offset_x", r.X.ToString(), "-offset_y", r.Y.ToString(),
                 "-video_size", $"{r.Width}x{r.Height}", "-i", "desktop"]);
         }
         if (audioPipe is not null)
-            args.AddRange(["-rtbufsize", "1048576", "-f", "f32le", "-ar", "48000", "-ac", "2", "-i", audioPipe]);
+            args.AddRange(["-rtbufsize", "1048576", "-probesize", "32", "-analyzeduration", "0", "-f", "f32le", "-ar", "48000", "-ac", "2", "-i", audioPipe]);
         if (kind == RecordingKind.Gif)
             args.AddRange(["-an", "-filter_complex", "[0:v]split[a][b];[a]palettegen=stats_mode=single[p];[b][p]paletteuse=new=1", "-loop", "0"]);
         else
@@ -92,16 +93,20 @@ internal sealed class RecordingSession
         RecordingAudio? audio = null;
         Process? process = null;
         var started = false;
+        RecordingCursor.Lease? cursor = null;
+        var startup = Stopwatch.StartNew();
         try
         {
+            if (kind != RecordingKind.Audio && settings.DrawMouse) cursor = RecordingCursor.Acquire();
             if (kind != RecordingKind.Gif && settings.AudioSource != "none")
                 audio = new RecordingAudio(settings.AudioSource, settings.MicrophoneId, settings.OutputDeviceId);
             if (kind == RecordingKind.Audio && audio is null) throw new ArgumentException("单独录音需要选择音源。");
             var start = new ProcessStartInfo(settings.FFmpegPath)
-            { UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardError = true, WorkingDirectory = AppContext.BaseDirectory };
+            { UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardError = true, RedirectStandardOutput = true, WorkingDirectory = AppContext.BaseDirectory };
             foreach (var arg in BuildArguments(kind, region, fps, settings, audio?.PipePath, partial)) start.ArgumentList.Add(arg);
             process = new Process { StartInfo = start };
             var session = new RecordingSession(kind, region, fps, output, partial, process, audio);
+            session._cursor = cursor;
             process.ErrorDataReceived += (_, e) =>
             {
                 if (e.Data is null) return;
@@ -109,19 +114,40 @@ internal sealed class RecordingSession
             };
             process.Start(); started = true; process.BeginErrorReadLine();
             audio?.Start();
-            await Task.Delay(900);
-            if (process.HasExited) throw new InvalidOperationException(session.ErrorMessage());
-            GuiLog.Write($"recording: start {kind} {region} fps={fps} file={output}");
+            var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _ = ReadProgressAsync(process, ready);
+            var exited = process.WaitForExitAsync();
+            var completed = await Task.WhenAny(ready.Task, exited).WaitAsync(TimeSpan.FromSeconds(15));
+            if (completed == exited || process.HasExited) throw new InvalidOperationException(session.ErrorMessage());
+            if (cursor?.Error is { } cursorError) throw new IOException("录制光标绘制失败。", cursorError);
+            GuiLog.Write($"recording: start {kind} {region} fps={fps} readyMs={startup.ElapsedMilliseconds} file={output}");
             return session;
         }
         catch
         {
             audio?.Dispose();
+            cursor?.Dispose();
             if (process is not null) { if (started && !process.HasExited) process.Kill(true); process.Dispose(); }
             // Preserve nonempty partial output for diagnosis/recovery.
             if (File.Exists(partial) && new FileInfo(partial).Length == 0) File.Delete(partial);
             throw;
         }
+    }
+
+    internal static bool IsReadyProgress(string line)
+    {
+        var pair = line.Split('=', 2);
+        return pair.Length == 2 && (pair[0] is "frame" or "out_time_us" or "out_time_ms")
+            && long.TryParse(pair[1].Trim(), out var value) && value > 0;
+    }
+    private static async Task ReadProgressAsync(Process process, TaskCompletionSource ready)
+    {
+        try
+        {
+            while (await process.StandardOutput.ReadLineAsync().ConfigureAwait(false) is { } line)
+                if (IsReadyProgress(line)) ready.TrySetResult();
+        }
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException or InvalidOperationException) { }
     }
 
     private string ErrorMessage()
@@ -147,10 +173,11 @@ internal sealed class RecordingSession
             _process.WaitForExit();
             if (_process.ExitCode != 0) throw new IOException(ErrorMessage());
             if (_audio?.Error is { } error) throw new IOException("音源采集失败，临时文件已保留。", error);
+            if (_cursor?.Error is { } cursorError) throw new IOException("录制光标绘制失败，临时文件已保留。", cursorError);
             if (!File.Exists(_partial) || new FileInfo(_partial).Length == 0) throw new IOException("录制没有产生有效文件。");
             File.Move(_partial, Output);
             GuiLog.Write($"recording: saved {Output} duration={Elapsed}");
         }
-        finally { _audio?.Dispose(); _process.Dispose(); }
+        finally { _audio?.Dispose(); _cursor?.Dispose(); _process.Dispose(); }
     }
 }
