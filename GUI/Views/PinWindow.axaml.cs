@@ -413,6 +413,7 @@ public partial class PinWindow : Window
         Topmost = true;
         ShowInTaskbar = false;
         CanResize = false;
+        if (OperatingSystem.IsWindows()) Win32Properties.AddWndProcHookCallback(this, OnNativeSizing);
 
         // 窗口自己得是可聚焦的，键盘焦点才落得下来 —— 否则 ESC 收不到
         Focusable = true;
@@ -464,6 +465,7 @@ public partial class PinWindow : Window
         PinGroupStore.Current.Changed += OnGroupsChanged;
         Closed += (_, _) =>
         {
+            if (OperatingSystem.IsWindows()) Win32Properties.RemoveWndProcHookCallback(this, OnNativeSizing);
             _isClosed = true;
             I18n.Current.Changed -= OnLanguageChanged;
             PinGroupStore.Current.Changed -= OnGroupsChanged;
@@ -1531,6 +1533,7 @@ public partial class PinWindow : Window
     /// <param name="keepAnchor">改完尺寸后围绕锚点把窗口摆回去（旋转/缩放时用）。</param>
     private void ApplySize(bool keepAnchor = false)
     {
+        PinNativeSizeLimit.Refresh(this);
         Width = _width;
         Height = _height;
 
@@ -1543,6 +1546,12 @@ public partial class PinWindow : Window
         }
 
         LogTaskbarCoverage();
+    }
+
+    private IntPtr OnNativeSizing(IntPtr handle, uint message, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        PinNativeSizeLimit.Apply(message, lParam, MaxSize, Scaling);
+        return IntPtr.Zero;
     }
 
     /// <summary>
