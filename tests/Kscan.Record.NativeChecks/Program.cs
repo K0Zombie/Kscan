@@ -11,10 +11,13 @@ using Kscan.App.Services;
 using Kscan.Core.Configuration;
 using Avalonia.Input;
 using Kscan.Platform;
+using Avalonia.LogicalTree;
 
 if (!OperatingSystem.IsWindows()) return;
 File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "portable"), "");
-AppBuilder.Configure<NativeCheckApp>().UsePlatformDetect().StartWithClassicDesktopLifetime(args, ShutdownMode.OnExplicitShutdown);
+AppBuilder.Configure<NativeCheckApp>().UsePlatformDetect()
+    .With(new FontManagerOptions { DefaultFamilyName = "sans-serif" }).WithInterFont()
+    .StartWithClassicDesktopLifetime(args, ShutdownMode.OnExplicitShutdown);
 
 sealed class NativeCheckApp : Application
 {
@@ -23,6 +26,36 @@ sealed class NativeCheckApp : Application
     {
         base.OnFrameworkInitializationCompleted();
         var desktop = (IClassicDesktopStyleApplicationLifetime)ApplicationLifetime!;
+        if (Environment.GetCommandLineArgs().Contains("--render-smoke"))
+        {
+            var screen = new ScreenInfo(new PixelRect(0, 0, 800, 600), 1);
+            var overlays = new[] { RecordingKind.Gif, RecordingKind.Video }
+                .Select(kind => RecordingRegionSelector.CreateOverlay(screen, kind)).ToArray();
+            foreach (var overlay in overlays)
+            {
+                overlay.Show();
+                overlay.SetSelection(new PixelRect(10, 10, 300, 200), new PixelPoint(780, 580));
+            }
+            var smoke = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
+            smoke.Tick += (_, _) =>
+            {
+                smoke.Stop();
+                try
+                {
+                    foreach (var overlay in overlays)
+                    {
+                        var label = overlay.GetLogicalDescendants().OfType<TextBlock>().Single();
+                        using var bitmap = new Avalonia.Media.Imaging.RenderTargetBitmap(new PixelSize(800, 600));
+                        bitmap.Render(overlay);
+                        Console.WriteLine($"PASS: rendered {label.Text}; font={label.FontFamily}; width={label.Bounds.Width}");
+                    }
+                    foreach (var overlay in overlays) overlay.Close();
+                    desktop.Shutdown(0);
+                }
+                catch (Exception ex) { Console.WriteLine(ex); desktop.Shutdown(1); }
+            };
+            smoke.Start(); return;
+        }
         var counter = new TextBlock { FontSize = 32, Margin = new Thickness(20), Foreground = Brushes.White };
         var start = new Button { Content = "开始实时框选检查", Margin = new Thickness(20), FontSize = 18 };
         var content = new StackPanel { Children = { counter, start } };

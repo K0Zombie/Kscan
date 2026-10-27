@@ -12,6 +12,27 @@ namespace Kscan.App.Tests;
 
 public sealed class RecordingTests
 {
+    [AvaloniaTheory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Recording_hint_measures_and_renders_using_a_resolved_control_font(int kind)
+    {
+        var screen = new ScreenInfo(new PixelRect(0, 0, 800, 600), 1);
+        var overlay = RecordingRegionSelector.CreateOverlay(screen, (RecordingKind)kind);
+        try
+        {
+            overlay.Show();
+            overlay.SetSelection(new PixelRect(10, 10, 300, 200), new PixelPoint(780, 580));
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            var label = Assert.Single(overlay.GetLogicalDescendants().OfType<TextBlock>());
+            Assert.True(label.Bounds.Width > 100);
+            Assert.NotEqual("$Default", label.FontFamily.Name);
+            using var image = new Avalonia.Media.Imaging.RenderTargetBitmap(new PixelSize(800, 600));
+            image.Render(overlay);
+        }
+        finally { overlay.Close(); }
+    }
     [Theory]
     [InlineData("frame=1", true)]
     [InlineData("frame=0", false)]

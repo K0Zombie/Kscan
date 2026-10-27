@@ -110,6 +110,8 @@ internal static class RecordingRegionSelector
     {
         internal ScreenInfo Screen { get; }
         private readonly SelectionVisual _visual;
+        private readonly Canvas _canvas;
+        private readonly Border _hint;
         internal SelectionWindow(ScreenInfo screen, RecordingKind kind)
         {
             Screen = screen;
@@ -119,7 +121,17 @@ internal static class RecordingRegionSelector
             Background = Brushes.Transparent; TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
             Width = screen.Bounds.Width / screen.Scaling; Height = screen.Bounds.Height / screen.Scaling;
             Position = screen.Bounds.Position;
-            _visual = new SelectionVisual(screen, SelectionLabel(kind)); Content = _visual;
+            _visual = new SelectionVisual(screen) { Width = Width, Height = Height };
+            _hint = new Border
+            {
+                Background = Brushes.DarkSlateBlue, BorderBrush = Brushes.DeepSkyBlue,
+                BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6), Padding = new Thickness(12, 8),
+                IsVisible = false,
+                // Inherit Fluent's resolved font instead of drawing with Typeface.Default ($Default).
+                Child = new TextBlock { Text = SelectionLabel(kind), FontSize = 15, Foreground = Brushes.White }
+            };
+            _canvas = new Canvas { ClipToBounds = true, Children = { _visual, _hint } };
+            Content = _canvas;
             Win32Properties.AddWindowStylesCallback(this, NoActivation);
         }
         private static (uint, uint) NoActivation(uint style, uint extended) => (style, extended | 0x08000000u | 0x80u);
@@ -128,31 +140,28 @@ internal static class RecordingRegionSelector
             base.OnOpened(e);
             SetWindowPos(TryGetPlatformHandle()!.Handle, new IntPtr(-1), Screen.Bounds.X, Screen.Bounds.Y, Screen.Bounds.Width, Screen.Bounds.Height, 0x10);
         }
-        internal void SetSelection(PixelRect? selection, PixelPoint cursor) { _visual.Selection = selection; _visual.CursorPosition = cursor; _visual.InvalidateVisual(); }
+        internal void SetSelection(PixelRect? selection, PixelPoint cursor)
+        {
+            _visual.Selection = selection; _visual.InvalidateVisual();
+            _hint.IsVisible = Screen.Bounds.Contains(cursor);
+            if (!_hint.IsVisible) return;
+            _hint.Measure(Size.Infinity);
+            var size = _hint.DesiredSize;
+            var x = (cursor.X - Screen.Bounds.X) / Screen.Scaling + 20;
+            var y = (cursor.Y - Screen.Bounds.Y) / Screen.Scaling + 24;
+            if (x + size.Width > Width) x -= size.Width + 40;
+            if (y + size.Height > Height) y -= size.Height + 48;
+            Canvas.SetLeft(_hint, Math.Max(0, x)); Canvas.SetTop(_hint, Math.Max(0, y));
+        }
     }
 
-    private sealed class SelectionVisual(ScreenInfo screen, string label) : Control
+    private sealed class SelectionVisual(ScreenInfo screen) : Control
     {
         internal PixelRect? Selection { get; set; }
-        internal PixelPoint? CursorPosition { get; set; }
-        private readonly FormattedText _label = new(label, System.Globalization.CultureInfo.CurrentUICulture,
-            FlowDirection.LeftToRight, Typeface.Default, 15, Brushes.White);
         public override void Render(DrawingContext context)
         {
             var scale = screen.Scaling;
             using var clip = context.PushClip(new Rect(Bounds.Size));
-            if (CursorPosition is { } cursor && screen.Bounds.Contains(cursor))
-            {
-                var width = _label.Width + 24;
-                var height = _label.Height + 16;
-                var x = (cursor.X - screen.Bounds.X) / scale + 20;
-                var y = (cursor.Y - screen.Bounds.Y) / scale + 24;
-                if (x + width > Bounds.Width) x -= width + 40;
-                if (y + height > Bounds.Height) y -= height + 48;
-                x = Math.Max(0, x); y = Math.Max(0, y);
-                context.DrawRectangle(Brushes.DarkSlateBlue, new Pen(Brushes.DeepSkyBlue, 1), new Rect(x, y, width, height), 6, 6);
-                context.DrawText(_label, new Point(x + 12, y + 8));
-            }
             if (Selection is not { } selection) return;
             var local = new Rect((selection.X - screen.Bounds.X) / scale, (selection.Y - screen.Bounds.Y) / scale,
                 selection.Width / scale, selection.Height / scale);
