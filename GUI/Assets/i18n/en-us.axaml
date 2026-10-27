@@ -1,5 +1,10 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <x:String x:Key="Str.Hotkey.Action.RecordVideo">Record region / Stop latest video</x:String>
+    <x:String x:Key="Str.Hotkey.Action.RecordGif">Record region GIF / Stop latest GIF</x:String>
+    <x:String x:Key="Str.Hotkey.Action.RecordAudio">Record audio / Stop latest audio</x:String>
+    <x:String x:Key="Str.Hotkey.Action.RecordingPanel">Recording and settings</x:String>
+    <x:String x:Key="Str.Hotkey.Action.StopRecordings">Stop all recordings</x:String>
 
     <!-- App / tabs -->
     <x:String x:Key="Str.App.Title">Kscan — Scan / Generate</x:String>

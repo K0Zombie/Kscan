@@ -27,7 +27,13 @@ internal static class PinDialog
     }
 
     /// <summary>多选一：返回按钮下标；关窗/ESC 返回 <c>-1</c>。</summary>
-    public static async Task<int> ChooseAsync(Window? owner, string title, string message, params string[] options)
+    public static Task<int> ChooseAsync(Window? owner, string title, string message, params string[] options) =>
+        ChooseCoreAsync(owner, title, message, false, options);
+
+    public static Task<int> ChooseRecordingAsync(Window? owner, string title, string message, params string[] options) =>
+        ChooseCoreAsync(owner, title, message, true, options);
+
+    private static async Task<int> ChooseCoreAsync(Window? owner, string title, string message, bool exclude, params string[] options)
     {
         var result = -1;
 
@@ -82,6 +88,7 @@ internal static class PinDialog
 
         root.Children.Add(buttons);
         dialog.Content = root;
+        if (exclude) dialog.Opened += (_, _) => Services.RecordingDisplay.Exclude(dialog);
 
         dialog.KeyDown += (_, e) =>
         {

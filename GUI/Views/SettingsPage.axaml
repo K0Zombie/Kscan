@@ -123,6 +123,7 @@
             <Border Classes="section" IsVisible="{Binding SectionGeneral}">
                 <StackPanel Spacing="10">
                     <TextBlock Classes="sectionTitle" Text="{DynamicResource Str.Settings.General}" />
+                    <Button Content="{DynamicResource Str.Hotkey.Action.RecordingPanel}" Click="OpenRecording" />
 
                     <Grid ColumnDefinitions="Auto,*">
                         <ToggleSwitch Grid.Column="0"

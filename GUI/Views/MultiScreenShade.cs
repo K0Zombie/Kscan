@@ -64,25 +64,40 @@ internal static class SelectionEdgeRules
 /// </summary>
 internal static class MultiScreenSelector
 {
+    /// <summary>Recording selection observes the live desktop; no snapshot or UIA child detection.</summary>
+    public static Task<PixelRect?> SelectLiveAsync(PixelRect virtualRect, IReadOnlyList<ScreenInfo> screens,
+        Action<Window>? onShown = null)
+    {
+        if (screens.Count == 0) return Task.FromResult<PixelRect?>(null);
+        var session = new MultiScreenSession(null, virtualRect, screens, visibleDesktopOnly: true);
+        foreach (var screen in screens) session.Add(new ShadeWindow(session, screen));
+        try { session.ShowAll(onShown); }
+        catch { session.Cancel(); throw; }
+        return session.LiveResult;
+    }
+
     /// <summary>弹出跨屏选区；用户取消（Esc / 右键 / 空选区）返回 <c>null</c>。</summary>
     public static Task<Services.RegionSelection?> SelectAsync(
         ImageFrame desktop,
         PixelRect virtualRect,
-        IReadOnlyList<ScreenInfo> screens)
+        IReadOnlyList<ScreenInfo> screens,
+        Action<Window>? onShown = null,
+        bool visibleDesktopOnly = false)
     {
         if (screens.Count == 0)
         {
             return Task.FromResult<Services.RegionSelection?>(null);
         }
 
-        var session = new MultiScreenSession(desktop, virtualRect, screens);
+        var session = new MultiScreenSession(desktop, virtualRect, screens, visibleDesktopOnly);
 
         foreach (var screen in screens)
         {
             session.Add(new ShadeWindow(session, screen));
         }
 
-        session.ShowAll();
+        try { session.ShowAll(onShown); }
+        catch { session.Cancel(); throw; }
         return session.Result;
     }
 }
@@ -99,9 +114,14 @@ internal sealed class MultiScreenSession
 
     private readonly List<ShadeWindow> _windows = [];
     private readonly TaskCompletionSource<Services.RegionSelection?> _completion = new();
+    private readonly TaskCompletionSource<PixelRect?> _liveCompletion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly ImageFrame? _desktop;
+    public bool IsLive => _desktop is null;
+    public Task<PixelRect?> LiveResult => _liveCompletion.Task;
 
     /// <summary>是否做"光标下的窗口识别"（设置项，默认开）。关掉就只有手动拖框。</summary>
     private readonly bool _windowDetection;
+    private readonly bool _visibleDesktopOnly;
 
     private Kscan.Platform.Abstractions.ScreenPoint _start;
     private bool _dragging;
@@ -112,9 +132,10 @@ internal sealed class MultiScreenSession
     private int _lastHoverX;
     private int _lastHoverY;
 
-    public MultiScreenSession(ImageFrame desktop, PixelRect virtualRect, IReadOnlyList<ScreenInfo> screens)
+    public MultiScreenSession(ImageFrame? desktop, PixelRect virtualRect, IReadOnlyList<ScreenInfo> screens, bool visibleDesktopOnly = false)
     {
-        Desktop = desktop;
+        _visibleDesktopOnly = visibleDesktopOnly;
+        _desktop = desktop;
         VirtualRect = virtualRect;
         Screens = screens;
 
@@ -122,7 +143,7 @@ internal sealed class MultiScreenSession
             && PlatformServices.ForegroundApp.IsSupported;
     }
 
-    public ImageFrame Desktop { get; }
+    public ImageFrame Desktop => _desktop ?? throw new InvalidOperationException("实时框选不持有桌面快照。");
 
     /// <summary>虚拟桌面在屏幕坐标里的矩形（物理像素）。</summary>
     public PixelRect VirtualRect { get; }
@@ -155,11 +176,12 @@ internal sealed class MultiScreenSession
 
     public void Add(ShadeWindow window) => _windows.Add(window);
 
-    public void ShowAll()
+    public void ShowAll(Action<Window>? onShown = null)
     {
         foreach (var window in _windows)
         {
             window.Show();
+            onShown?.Invoke(window);
         }
 
         // Show 之后再摆一次：此时窗口已挂到目标显示器，Avalonia 会用该屏缩放换算物理尺寸。
@@ -204,7 +226,7 @@ internal sealed class MultiScreenSession
 
         // 诊断：一次性记录坐标系（屏幕矩形 / 虚拟桌面 / 拼合图尺寸 / 起始光标）
         GuiLog.Write(
-            $"multiscreen: begin cursor=({cursor.X},{cursor.Y}) virtual=({VirtualRect.X},{VirtualRect.Y},{VirtualRect.Width},{VirtualRect.Height}) desktop={Desktop.Width}x{Desktop.Height} screens=" +
+            $"multiscreen: begin cursor=({cursor.X},{cursor.Y}) virtual=({VirtualRect.X},{VirtualRect.Y},{VirtualRect.Width},{VirtualRect.Height}) desktop={(_desktop is { } frame ? $"{frame.Width}x{frame.Height}" : "live")} screens=" +
             string.Join("; ", Screens.Select(screen =>
                 $"({screen.Bounds.X},{screen.Bounds.Y},{screen.Bounds.Width},{screen.Bounds.Height})@{screen.Scaling:0.##}")));
 
@@ -386,6 +408,7 @@ internal sealed class MultiScreenSession
     {
         frame = null!;
         coverage = default;
+        if (_visibleDesktopOnly) return false;
 
         var settings = AppSettingsService.Current.Settings;
 
@@ -432,6 +455,7 @@ internal sealed class MultiScreenSession
     /// <summary>最近邻降采样出"最终结果"的缩略图（代价只与缩略图尺寸有关）。</summary>
     private void UpdatePreview()
     {
+        if (IsLive) return;
         if (Selection is not { } selection || Desktop.Width <= 0 || Desktop.Height <= 0)
         {
             return;
@@ -531,6 +555,13 @@ internal sealed class MultiScreenSession
 
         // 单击（没拖动）停在某个窗口上：和单屏一样，被挡住 / 超出屏幕时用 PrintWindow 拿**完整窗口**。
         // 不这样做的话跨屏这边只能截"屏幕上露出来的那一块"，表现就是"按住 Ctrl 也没法防遮挡"。
+        if (IsLive)
+        {
+            _done = true;
+            _liveCompletion.TrySetResult(selection.Intersect(VirtualRect));
+            DisposeAll();
+            return;
+        }
         if (!_dragged && _hoverTarget is { } target && selection == target.Rect
             && TryCaptureWholeWindow(target, out var whole, out var coverage))
         {
@@ -582,6 +613,7 @@ internal sealed class MultiScreenSession
 
         _done = true;
         _completion.TrySetResult(null);
+        _liveCompletion.TrySetResult(null);
         DisposeAll();
     }
 
@@ -699,10 +731,18 @@ internal sealed class ShadeWindow : Window
         Focusable = true;
 
         // 底色用主题的遮罩色，和单屏框选一致
-        Background = ThemeService.Current.MaskBrush;
-
-        _sliceBitmap = Slice(session.Desktop, session.VirtualRect, screen.Bounds);
-        _slice.Source = _sliceBitmap;
+        if (session.IsLive)
+        {
+            TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
+            // A nonzero alpha keeps the live selector hit-testable on layered Win32 windows.
+            Background = new SolidColorBrush(Color.FromArgb(1, 0, 0, 0));
+        }
+        else
+        {
+            Background = ThemeService.Current.MaskBrush;
+            _sliceBitmap = Slice(session.Desktop, session.VirtualRect, screen.Bounds);
+            _slice.Source = _sliceBitmap;
+        }
 
         _previewPanel.Child = new StackPanel { Children = { _previewImage, _previewLabel } };
 

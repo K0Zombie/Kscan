@@ -126,6 +126,21 @@ public sealed partial class MainViewModel : ObservableObject
             case HotkeyActionIds.ScrollCapture:
                 Scan.ScrollCaptureCommand.Execute(null);
                 break;
+            case HotkeyActionIds.RecordVideo:
+                _ = RecordingManager.ToggleAsync(RecordingKind.Video);
+                break;
+            case HotkeyActionIds.RecordGif:
+                _ = RecordingManager.ToggleAsync(RecordingKind.Gif);
+                break;
+            case HotkeyActionIds.RecordAudio:
+                _ = RecordingManager.ToggleAsync(RecordingKind.Audio);
+                break;
+            case HotkeyActionIds.RecordingPanel:
+                RecordingManager.Show();
+                break;
+            case HotkeyActionIds.StopRecordings:
+                _ = RecordingManager.StopAllAsync();
+                break;
 
             case HotkeyActionIds.ToggleCaptureAcrossScreens:
                 ToggleCaptureAcrossScreens();

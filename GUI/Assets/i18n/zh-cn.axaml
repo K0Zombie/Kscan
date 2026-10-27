@@ -2,6 +2,11 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- 应用 / 页签 -->
+    <x:String x:Key="Str.Hotkey.Action.RecordVideo">框选录视频 / 停止最近视频</x:String>
+    <x:String x:Key="Str.Hotkey.Action.RecordGif">框选录 GIF / 停止最近 GIF</x:String>
+    <x:String x:Key="Str.Hotkey.Action.RecordAudio">录音 / 停止最近录音</x:String>
+    <x:String x:Key="Str.Hotkey.Action.RecordingPanel">录制与录制设置</x:String>
+    <x:String x:Key="Str.Hotkey.Action.StopRecordings">停止全部录制</x:String>
     <x:String x:Key="Str.App.Title">Kscan — 扫码 / 生成</x:String>
     <x:String x:Key="Str.Tab.Scan">识别</x:String>
     <x:String x:Key="Str.Tab.Generate">生成</x:String>

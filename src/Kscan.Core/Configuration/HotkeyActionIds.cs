@@ -81,8 +81,13 @@ public static class HotkeyActionIds
     public const string PickExcludedApp = "pickExcludedApp";
 
     public const string RunCommand = "runCommand";
+    public const string RecordVideo = "recordVideo";
+    public const string RecordGif = "recordGif";
+    public const string RecordAudio = "recordAudio";
+    public const string RecordingPanel = "recordingPanel";
+    public const string StopRecordings = "stopRecordings";
 
     /// <summary>全部可绑动作（也是界面展示顺序）。</summary>
     public static IReadOnlyList<string> All { get; } =
-        [CaptureRegion, CaptureRegionToClipboard, CaptureRegionAndPin, CaptureRegionWithAnnotation, ScrollCapture, AnnotateClipboard, AnnotateScreen, ToggleCaptureAcrossScreens, ScanClipboard, ClipboardToCode, SaveClipboardToFolder, UndoLastAction, PinClipboard, CloseAllPins, TogglePinTopmost, ClosePinUnderCursor, OpenPinManager, Activate, PickExcludedApp, RunCommand];
+        [CaptureRegion, CaptureRegionToClipboard, CaptureRegionAndPin, CaptureRegionWithAnnotation, ScrollCapture, RecordVideo, RecordGif, RecordAudio, RecordingPanel, StopRecordings, AnnotateClipboard, AnnotateScreen, ToggleCaptureAcrossScreens, ScanClipboard, ClipboardToCode, SaveClipboardToFolder, UndoLastAction, PinClipboard, CloseAllPins, TogglePinTopmost, ClosePinUnderCursor, OpenPinManager, Activate, PickExcludedApp, RunCommand];
 }

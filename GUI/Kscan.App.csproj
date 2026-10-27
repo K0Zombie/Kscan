@@ -24,6 +24,7 @@
     <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.4" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Markdown.Avalonia" Version="12.0.0-a3" />
+    <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
 
     <!--
       Avalonia 会传递一个较旧的 SkiaSharp native 包（3.119.4），与 Core 用的 SkiaSharp 4.153.1

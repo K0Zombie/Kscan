@@ -157,7 +157,7 @@ public partial class App : Application
                     desktop.Shutdown();
                 },
                 new DesktopTray(this));
-            desktop.Exit += (_, _) => _background.Dispose();
+            desktop.Exit += (_, _) => { RecordingManager.FinalizeOnExit(); _background.Dispose(); };
 
             void Ready()
             {
