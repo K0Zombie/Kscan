@@ -12,6 +12,17 @@ internal static class RecordingManager
     private static bool _selecting;
     private static readonly List<RecordingControlWindow> Sessions = [];
     public static bool IsRecording => Sessions.Count > 0;
+    public static void ShowSettings()
+    {
+        var desktop = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+        var main = desktop?.Windows.OfType<MainWindow>().FirstOrDefault();
+        if (main?.DataContext is ViewModels.MainViewModel model)
+        {
+            model.Settings.ActiveSection = "recording";
+            model.ActiveTabIndex = 2;
+            main.Show(); main.Activate();
+        }
+    }
     public static void Show()
     {
         if (_window is null) { _window = new RecordingWindow(); _window.Closed += (_, _) => _window = null; }

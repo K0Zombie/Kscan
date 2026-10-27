@@ -13,6 +13,32 @@ namespace Kscan.App.Tests;
 public sealed class RecordingTests
 {
     [AvaloniaFact]
+    public void Recording_subpage_loads_only_when_selected_and_hides_advanced_settings()
+    {
+        var model = new Kscan.App.ViewModels.SettingsViewModel();
+        var page = new SettingsPage { DataContext = model };
+        var host = page.FindControl<ContentControl>("RecordingSectionHost")!;
+        Assert.Null(host.Content);
+        model.SelectSectionCommand.Execute("recording");
+        Assert.True(model.SectionRecording);
+        Assert.False(model.SectionGeneral);
+        var panel = Assert.IsType<RecordingSettingsPanel>(host.Content);
+        var expander = Assert.Single(panel.GetLogicalDescendants().OfType<Expander>());
+        Assert.False(expander.IsExpanded);
+        var kind = panel.GetLogicalDescendants().OfType<ComboBox>().First();
+        var fps = panel.GetLogicalDescendants().OfType<NumericUpDown>().ToArray();
+        Assert.True(fps[0].IsVisible);
+        Assert.False(fps[1].IsVisible);
+        kind.SelectedIndex = 1;
+        Assert.False(fps[0].IsVisible);
+        Assert.True(fps[1].IsVisible);
+        model.SelectSectionCommand.Execute("general");
+        Assert.False(model.SectionRecording);
+        model.SelectSectionCommand.Execute("recording");
+        Assert.Same(panel, host.Content);
+    }
+
+    [AvaloniaFact]
     public async Task Live_recording_selection_has_no_snapshot_images_or_thumbnail()
     {
         var bounds = new PixelRect(-1920, 0, 3840, 1080);
@@ -63,6 +89,8 @@ public sealed class RecordingTests
         window.Show();
         Assert.True(window.IsVisible);
         Assert.False(RecordingManager.IsRecording);
+        Assert.Empty(window.GetLogicalDescendants().OfType<TextBox>());
+        Assert.Empty(window.GetLogicalDescendants().OfType<NumericUpDown>());
         window.Close();
     }
 

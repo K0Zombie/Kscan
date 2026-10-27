@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:Kscan.App.ViewModels"
+             xmlns:views="clr-namespace:Kscan.App.Views"
              x:Class="Kscan.App.Views.SettingsPage"
              x:DataType="vm:SettingsViewModel">
 
@@ -77,6 +78,7 @@
                     VerticalAlignment="Stretch">
                 <StackPanel Spacing="2">
                     <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.General}" Command="{Binding SelectSectionCommand}" CommandParameter="general" IsChecked="{Binding SectionGeneral, Mode=OneWay}" />
+                    <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.Recording}" Command="{Binding SelectSectionCommand}" CommandParameter="recording" IsChecked="{Binding SectionRecording, Mode=OneWay}" />
                     <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.Theme}" Command="{Binding SelectSectionCommand}" CommandParameter="appearance" IsChecked="{Binding SectionAppearance, Mode=OneWay}" />
                     <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.Hotkey}" Command="{Binding SelectSectionCommand}" CommandParameter="hotkey" IsChecked="{Binding SectionHotkey, Mode=OneWay}" />
                     <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.Commands}" Command="{Binding SelectSectionCommand}" CommandParameter="commands" IsChecked="{Binding SectionCommands, Mode=OneWay}" />
@@ -91,6 +93,9 @@
 
             <ScrollViewer Grid.Column="1" Margin="16,0,0,0">
                 <StackPanel Spacing="12" MaxWidth="780" HorizontalAlignment="Left">
+            <Border Classes="section" IsVisible="{Binding SectionRecording}">
+                <ContentControl x:Name="RecordingSectionHost" />
+            </Border>
 
             <!-- 平台能力 -->
             <Border Classes="section" IsVisible="{Binding SectionGeneral}">
@@ -123,7 +128,6 @@
             <Border Classes="section" IsVisible="{Binding SectionGeneral}">
                 <StackPanel Spacing="10">
                     <TextBlock Classes="sectionTitle" Text="{DynamicResource Str.Settings.General}" />
-                    <Button Content="{DynamicResource Str.Hotkey.Action.RecordingPanel}" Click="OpenRecording" />
 
                     <Grid ColumnDefinitions="Auto,*">
                         <ToggleSwitch Grid.Column="0"

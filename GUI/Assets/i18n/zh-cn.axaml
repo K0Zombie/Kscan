@@ -2,6 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- 应用 / 页签 -->
+    <x:String x:Key="Str.Settings.Recording">录制</x:String>
     <x:String x:Key="Str.Hotkey.Action.RecordVideo">框选录视频 / 停止最近视频</x:String>
     <x:String x:Key="Str.Hotkey.Action.RecordGif">框选录 GIF / 停止最近 GIF</x:String>
     <x:String x:Key="Str.Hotkey.Action.RecordAudio">录音 / 停止最近录音</x:String>
