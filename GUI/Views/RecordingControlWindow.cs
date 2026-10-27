@@ -26,6 +26,7 @@ internal sealed class RecordingControlWindow : Window
         ShowInTaskbar = true; ShowActivated = false; Topmost = true;
         Bind(BackgroundProperty, new DynamicResourceExtension("KscanBackgroundBrush"));
         Bind(ForegroundProperty, new DynamicResourceExtension("KscanForegroundBrush"));
+        Bind(FontFamilyProperty, new DynamicResourceExtension("KscanFontFamily"));
         var panel = new StackPanel { Margin = new Thickness(12), Spacing = 8 };
         panel.Children.Add(_info);
         var stop = new Button { Content = "停止并保存", HorizontalAlignment = HorizontalAlignment.Stretch };
@@ -118,12 +119,16 @@ internal sealed class RecordingFrameWindow : Window
         Width = screen.Width / scale; Height = screen.Height / scale;
         Position = screen.Position;
         var canvas = new Canvas { ClipToBounds = true };
-        var border = new Border { Width = region.Width / scale, Height = region.Height / scale,
-            BorderBrush = Brushes.Red, BorderThickness = new Thickness(2) };
+        Bind(FontFamilyProperty, new DynamicResourceExtension("KscanFontFamily"));
+        var border = new Border { Name = "RecordingActiveBorder", Width = region.Width / scale, Height = region.Height / scale,
+            BorderThickness = new Thickness(2) };
+        border.Bind(Border.BorderBrushProperty, new DynamicResourceExtension("KscanDangerBrush"));
         Canvas.SetLeft(border, (region.X - screen.X) / scale); Canvas.SetTop(border, (region.Y - screen.Y) / scale);
         canvas.Children.Add(border);
-        _time = new TextBlock { Text = $"● 00:00:00  {region.Width}×{region.Height}", Foreground = Brushes.White,
-            Background = Brushes.Black, Padding = new Thickness(5), FontSize = 12 };
+        _time = new TextBlock { Name = "RecordingActiveTime", Text = $"● 00:00:00  {region.Width}×{region.Height}",
+            Padding = new Thickness(5), FontSize = 12 };
+        _time.Bind(TextBlock.ForegroundProperty, new DynamicResourceExtension("KscanForegroundBrush"));
+        _time.Bind(TextBlock.BackgroundProperty, new DynamicResourceExtension("KscanBackgroundBrush"));
         Canvas.SetLeft(_time, Math.Max(0, (region.X - screen.X) / scale + 4));
         Canvas.SetTop(_time, Math.Max(0, (region.Y - screen.Y) / scale + 4));
         canvas.Children.Add(_time); Content = canvas;

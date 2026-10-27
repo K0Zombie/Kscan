@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Threading;
 using Kscan.App.Services;
 using Kscan.Platform;
@@ -109,7 +110,7 @@ internal static class RecordingRegionSelector
     internal sealed class SelectionWindow : Window
     {
         internal ScreenInfo Screen { get; }
-        private readonly SelectionVisual _visual;
+        private readonly Border _selection;
         private readonly Canvas _canvas;
         private readonly Border _hint;
         internal SelectionWindow(ScreenInfo screen, RecordingKind kind)
@@ -121,16 +122,23 @@ internal static class RecordingRegionSelector
             Background = Brushes.Transparent; TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
             Width = screen.Bounds.Width / screen.Scaling; Height = screen.Bounds.Height / screen.Scaling;
             Position = screen.Bounds.Position;
-            _visual = new SelectionVisual(screen) { Width = Width, Height = Height };
+            Bind(FontFamilyProperty, new DynamicResourceExtension("KscanFontFamily"));
+            _selection = new Border { Name = "RecordingSelectionBorder", BorderThickness = new Thickness(2 / screen.Scaling), IsVisible = false };
+            _selection.Bind(Border.BorderBrushProperty, new DynamicResourceExtension("KscanAccentBrush"));
+            var label = new TextBlock { Name = "RecordingSelectionLabel", Text = SelectionLabel(kind), FontSize = 15 };
+            label.Bind(TextBlock.ForegroundProperty, new DynamicResourceExtension("KscanForegroundBrush"));
             _hint = new Border
             {
-                Background = Brushes.DarkSlateBlue, BorderBrush = Brushes.DeepSkyBlue,
+                Name = "RecordingSelectionHint",
                 BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(6), Padding = new Thickness(12, 8),
                 IsVisible = false,
                 // Inherit Fluent's resolved font instead of drawing with Typeface.Default ($Default).
-                Child = new TextBlock { Text = SelectionLabel(kind), FontSize = 15, Foreground = Brushes.White }
+                Child = label
             };
-            _canvas = new Canvas { ClipToBounds = true, Children = { _visual, _hint } };
+            _hint.Bind(Border.BackgroundProperty, new DynamicResourceExtension("KscanBackgroundBrush"));
+            _hint.Bind(Border.BorderBrushProperty, new DynamicResourceExtension("KscanAccentBrush"));
+            _hint.Bind(Border.CornerRadiusProperty, new DynamicResourceExtension("KscanCornerRadius"));
+            _canvas = new Canvas { ClipToBounds = true, Children = { _selection, _hint } };
             Content = _canvas;
             Win32Properties.AddWindowStylesCallback(this, NoActivation);
         }
@@ -142,7 +150,13 @@ internal static class RecordingRegionSelector
         }
         internal void SetSelection(PixelRect? selection, PixelPoint cursor)
         {
-            _visual.Selection = selection; _visual.InvalidateVisual();
+            _selection.IsVisible = selection is not null;
+            if (selection is { } area)
+            {
+                _selection.Width = area.Width / Screen.Scaling; _selection.Height = area.Height / Screen.Scaling;
+                Canvas.SetLeft(_selection, (area.X - Screen.Bounds.X) / Screen.Scaling);
+                Canvas.SetTop(_selection, (area.Y - Screen.Bounds.Y) / Screen.Scaling);
+            }
             _hint.IsVisible = Screen.Bounds.Contains(cursor);
             if (!_hint.IsVisible) return;
             _hint.Measure(Size.Infinity);
@@ -155,19 +169,6 @@ internal static class RecordingRegionSelector
         }
     }
 
-    private sealed class SelectionVisual(ScreenInfo screen) : Control
-    {
-        internal PixelRect? Selection { get; set; }
-        public override void Render(DrawingContext context)
-        {
-            var scale = screen.Scaling;
-            using var clip = context.PushClip(new Rect(Bounds.Size));
-            if (Selection is not { } selection) return;
-            var local = new Rect((selection.X - screen.Bounds.X) / scale, (selection.Y - screen.Bounds.Y) / scale,
-                selection.Width / scale, selection.Height / scale);
-            context.DrawRectangle(null, new Pen(Brushes.DeepSkyBlue, 2 / scale), local);
-        }
-    }
     [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int key);
     [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);

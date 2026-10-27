@@ -3,6 +3,7 @@ using System.Text.Json;
 using Avalonia;
 using Avalonia.Headless.XUnit;
 using Avalonia.Controls;
+using Avalonia.Media;
 using Avalonia.LogicalTree;
 using Kscan.App.Services;
 using Kscan.App.Views;
@@ -12,6 +13,48 @@ namespace Kscan.App.Tests;
 
 public sealed class RecordingTests
 {
+    [AvaloniaFact]
+    public void Selection_hint_and_active_recording_track_live_theme_colors_and_font()
+    {
+        var previous = ThemeService.Current.CurrentTheme;
+        var screen = new ScreenInfo(new PixelRect(0, 0, 800, 600), 1);
+        var overlay = RecordingRegionSelector.CreateOverlay(screen, RecordingKind.Gif);
+        var active = new RecordingFrameWindow(new PixelRect(10, 10, 300, 200), screen.Bounds, 1);
+        try
+        {
+            overlay.Show(); active.Show();
+            overlay.SetSelection(new PixelRect(10, 10, 300, 200), new PixelPoint(400, 300));
+            static T Find<T>(Control root, string name) where T : Control => root.GetLogicalDescendants().OfType<T>().Single(x => x.Name == name);
+            var hint = Find<Border>(overlay, "RecordingSelectionHint");
+            var label = Find<TextBlock>(overlay, "RecordingSelectionLabel");
+            var selection = Find<Border>(overlay, "RecordingSelectionBorder");
+            var clock = Find<TextBlock>(active, "RecordingActiveTime");
+            var frame = Find<Border>(active, "RecordingActiveBorder");
+            foreach (var theme in new[] { ThemeDefinition.Light, ThemeDefinition.Dark, ThemeDefinition.Dark with
+            {
+                FontFamily = "Courier New", CornerRadius = 12,
+                Colors = ThemeDefinition.Dark.Colors with { Background = "#244050", Foreground = "#FFEEAA", Accent = "#AAEEFF", Danger = "#FF55AA" }
+            } })
+            {
+                ThemeService.Current.Apply(theme);
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                static Color ColorOf(IBrush? brush) => Assert.IsAssignableFrom<ISolidColorBrush>(brush).Color;
+                Assert.Equal(Color.Parse(theme.Colors.Background), ColorOf(hint.Background));
+                Assert.Equal(Color.Parse(theme.Colors.Foreground), ColorOf(label.Foreground));
+                Assert.Equal(Color.Parse(theme.Colors.Accent), ColorOf(hint.BorderBrush));
+                Assert.Equal(Color.Parse(theme.Colors.Accent), ColorOf(selection.BorderBrush));
+                Assert.Equal(Color.Parse(theme.Colors.Background), ColorOf(clock.Background));
+                Assert.Equal(Color.Parse(theme.Colors.Foreground), ColorOf(clock.Foreground));
+                Assert.Equal(Color.Parse(theme.Colors.Danger), ColorOf(frame.BorderBrush));
+                Assert.Equal(theme.CornerRadius, hint.CornerRadius.TopLeft);
+                if (theme.FontFamily is { Length: > 0 }) Assert.Equal(theme.FontFamily, label.FontFamily.Name);
+                using var image = new Avalonia.Media.Imaging.RenderTargetBitmap(new PixelSize(800, 600));
+                image.Render(overlay); image.Render(active);
+            }
+        }
+        finally { overlay.Close(); active.Close(); ThemeService.Current.Apply(previous); }
+    }
     [AvaloniaTheory]
     [InlineData(0)]
     [InlineData(1)]
