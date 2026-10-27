@@ -1,10 +1,10 @@
-# Kscan 0.1.15 使用手册
+# Kscan 0.1.16 使用手册
 
-Kscan 提供二维码/条码识别与生成、截图、标注、屏幕贴图及命令行工具。本手册对应 0.1.15；实际快捷键以「设置 → 全局热键」为准，升级不会覆盖已有配置。
+Kscan 提供二维码/条码识别与生成、截图、标注、屏幕贴图及命令行工具。本手册对应 0.1.16；实际快捷键以「设置 → 全局热键」为准，升级不会覆盖已有配置。
 
 ## 1. 解压与启动
 
-Windows x64：解压整个 `kscan-0.1.15-win-x64-portable.zip`，双击 `kscan-gui.exe`。无需另外安装 .NET。请保留旁边所有 DLL 和运行库。
+Windows x64：解压整个 `kscan-0.1.16-win-x64-portable.zip`，双击 `kscan-gui.exe`。无需另外安装 .NET。请保留旁边所有 DLL 和运行库。
 
 包内文件：
 
@@ -241,7 +241,7 @@ CLI 常见退出码：0 成功，1 没识别到码，2 参数、环境或读写�
 便携包是干净程序，源码包是开发快照，两者均不等于个人图库备份。保留个人设置和图库时另行复制 `data/`。交付包旁的 `.sha256` 用于核对下载或复制是否完整：
 
 ```powershell
-Get-FileHash .\kscan-0.1.15-win-x64-portable.zip -Algorithm SHA256
+Get-FileHash .\kscan-0.1.16-win-x64-portable.zip -Algorithm SHA256
 ```
 
 ## 9. 从源码构建
