@@ -98,7 +98,7 @@ internal sealed class RecordingSession
                 audio = new RecordingAudio(settings.AudioSource, settings.MicrophoneId, settings.OutputDeviceId);
             if (kind == RecordingKind.Audio && audio is null) throw new ArgumentException("单独录音需要选择音源。");
             var start = new ProcessStartInfo(settings.FFmpegPath)
-            { UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardError = true };
+            { UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardError = true, WorkingDirectory = AppContext.BaseDirectory };
             foreach (var arg in BuildArguments(kind, region, fps, settings, audio?.PipePath, partial)) start.ArgumentList.Add(arg);
             process = new Process { StartInfo = start };
             var session = new RecordingSession(kind, region, fps, output, partial, process, audio);
@@ -135,6 +135,7 @@ internal sealed class RecordingSession
         try
         {
             _clock.Stop();
+            _audio?.BeginFinishing();
             if (!_process.HasExited)
             {
                 await _process.StandardInput.WriteLineAsync("q").ConfigureAwait(false);

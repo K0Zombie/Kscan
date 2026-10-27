@@ -12,6 +12,27 @@ namespace Kscan.App.Tests;
 
 public sealed class RecordingTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Audio_pipe_close_is_only_ignored_during_normal_finalization(bool finishing)
+    {
+        using var audio = new RecordingAudio();
+        audio.Start();
+        var name = audio.PipePath[(audio.PipePath.LastIndexOf('\\') + 1)..];
+        using var consumer = new System.IO.Pipes.NamedPipeClientStream(".", name, System.IO.Pipes.PipeDirection.In, System.IO.Pipes.PipeOptions.Asynchronous);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await consumer.ConnectAsync(timeout.Token);
+        var buffer = new byte[3840];
+        await consumer.ReadExactlyAsync(buffer, timeout.Token);
+        Assert.All(buffer, value => Assert.Equal(0, value));
+        if (finishing) audio.BeginFinishing();
+        consumer.Dispose();
+        for (var i = 0; i < 30 && audio.Error is null; i++) await Task.Delay(10, timeout.Token);
+        if (finishing) Assert.Null(audio.Error);
+        else Assert.IsAssignableFrom<IOException>(audio.Error);
+    }
+
     [AvaloniaFact]
     public void Recording_subpage_loads_only_when_selected_and_hides_advanced_settings()
     {
@@ -39,20 +60,27 @@ public sealed class RecordingTests
     }
 
     [AvaloniaFact]
-    public async Task Live_recording_selection_has_no_snapshot_images_or_thumbnail()
+    public void Passive_recording_selection_has_no_snapshot_and_does_not_request_focus()
     {
-        var bounds = new PixelRect(-1920, 0, 3840, 1080);
         var monitor = new ScreenInfo(new PixelRect(-1920, 0, 1920, 1080), 1.5);
-        var session = new MultiScreenSession(null, bounds, [monitor], visibleDesktopOnly: true);
-        var shade = new ShadeWindow(session, monitor);
-        session.Add(shade);
-        Assert.True(session.IsLive);
-        Assert.Null(session.Preview);
-        Assert.Throws<InvalidOperationException>(() => session.Desktop);
+        var shade = RecordingRegionSelector.CreateOverlay(monitor);
+        Assert.False(shade.ShowActivated);
+        Assert.False(shade.Focusable);
         Assert.Contains(WindowTransparencyLevel.Transparent, shade.TransparencyLevelHint);
-        Assert.All(shade.GetLogicalDescendants().OfType<Image>(), image => Assert.Null(image.Source));
-        session.Cancel();
-        Assert.Null(await session.LiveResult);
+        Assert.Empty(shade.GetLogicalDescendants().OfType<Image>());
+        shade.Close();
+    }
+
+    [Fact]
+    public void Recording_drag_preserves_cross_monitor_negative_physical_coordinates()
+    {
+        var desktop = new PixelRect(-2560, -365, 4480, 1445);
+        var a = new PixelPoint(-2400, -200); var b = new PixelPoint(600, 700);
+        Assert.Equal(new PixelRect(-2400, -200, 3000, 900), RecordingSelectionGeometry.Drag(a, b, desktop));
+        Assert.Equal(RecordingSelectionGeometry.Drag(a, b, desktop), RecordingSelectionGeometry.Drag(b, a, desktop));
+        Assert.False(RecordingSelectionGeometry.IsDrag(a, new(a.X + 3, a.Y + 3)));
+        Assert.True(RecordingSelectionGeometry.IsDrag(a, new(a.X + 4, a.Y)));
+        Assert.Equal(desktop, RecordingSelectionGeometry.Drag(new(-10000, -10000), new(10000, 10000), desktop));
     }
 
     [Fact]

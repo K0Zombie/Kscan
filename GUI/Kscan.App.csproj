@@ -37,6 +37,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Kscan.App.Tests" />
+    <InternalsVisibleTo Include="Kscan.Record.NativeChecks" />
     <ProjectReference Include="..\src\Kscan.Core\Kscan.Core.csproj" />
     <ProjectReference Include="..\src\Kscan.Platform\Kscan.Platform.csproj" />
   </ItemGroup>

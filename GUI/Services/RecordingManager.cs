@@ -73,11 +73,7 @@ internal static class RecordingManager
                 _window?.Hide();
                 await Task.Delay(150); // Let the settings window disappear before live window detection starts.
                 var all = screens.All.Select(s => new ScreenInfo(s.Bounds, s.Scaling)).ToArray();
-                var left = all.Min(s => s.Bounds.X); var top = all.Min(s => s.Bounds.Y);
-                var bounds = new PixelRect(left, top, all.Max(s => s.Bounds.Right) - left, all.Max(s => s.Bounds.Bottom) - top);
-                // MultiScreenSelector only detects top-level windows; it never probes UIA children.
-                region = await MultiScreenSelector.SelectLiveAsync(bounds, all,
-                    IsRecording ? RecordingDisplay.Exclude : null);
+                region = await RecordingRegionSelector.SelectAsync(all);
                 if (region is null) { _window?.Show(); return; }
                 if (region.Value.Width < 16 || region.Value.Height < 16) throw new ArgumentException("录制区域至少为16×16像素。");
             }

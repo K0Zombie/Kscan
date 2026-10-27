@@ -14,6 +14,7 @@ internal sealed class RecordingAudio : IDisposable
     private readonly NamedPipeServerStream _pipe;
     private readonly CancellationTokenSource _cancel = new();
     private Task? _pump;
+    private volatile bool _finishing;
     public string PipePath { get; }
     internal Exception? Error { get; private set; }
 
@@ -26,12 +27,17 @@ internal sealed class RecordingAudio : IDisposable
         }).ToArray();
     }
 
-    public RecordingAudio(string source, string? microphone, string? output)
+    /// <summary>A clocked silent PCM pipe; device sources may be attached by the other constructor.</summary>
+    internal RecordingAudio()
     {
         var name = "kscan-audio-" + Guid.NewGuid().ToString("N");
         PipePath = @"\\.\pipe\" + name;
         _pipe = new NamedPipeServerStream(name, PipeDirection.Out, 1, PipeTransmissionMode.Byte,
             PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly, 0, 48000 * 8 / 4);
+    }
+
+    public RecordingAudio(string source, string? microphone, string? output) : this()
+    {
         try
         {
             using var devices = new MMDeviceEnumerator();
@@ -74,6 +80,7 @@ internal sealed class RecordingAudio : IDisposable
         foreach (var source in _sources) source.Capture.StartRecording();
         _pump = Task.Run(PumpAsync);
     }
+    internal void BeginFinishing() => _finishing = true;
 
     private async Task PumpAsync()
     {
@@ -102,6 +109,7 @@ internal sealed class RecordingAudio : IDisposable
             }
         }
         catch (OperationCanceledException) { }
+        catch (IOException) when (_finishing) { } // FFmpeg closes its PCM input while finalizing a normal stop.
         catch (Exception ex) { if (!_cancel.IsCancellationRequested) Error = ex; }
     }
 

@@ -88,10 +88,15 @@ internal sealed class RecordingControlWindow : Window
             if (choice == 0) Open(Session.Output);
             else if (choice == 1) Open(Path.GetDirectoryName(Session.Output)!);
         }
-        catch (Exception ex) { GuiLog.Write($"recording: stop failed {ex}"); await PinDialog.ChooseRecordingAsync(this, "录制未完成", ex.Message, "确定"); }
+        catch (Exception ex)
+        {
+            GuiLog.Write($"recording: completion action failed {ex}");
+            await PinDialog.ChooseRecordingAsync(this, File.Exists(Session.Output) ? "录制已保存，打开失败" : "录制未完成", ex.Message, "确定");
+        }
         finally { _finished = true; Close(); }
     }
-    private static void Open(string path) => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true });
+    private static void Open(string path) => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path)
+        { UseShellExecute = true, WorkingDirectory = AppContext.BaseDirectory });
 }
 
 internal sealed class RecordingFrameWindow : Window
