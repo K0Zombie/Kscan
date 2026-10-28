@@ -11,6 +11,29 @@ namespace Kscan.App.Tests;
 
 public sealed class NamingTests
 {
+    [AvaloniaFact]
+    public void Settings_navigation_separates_file_names_stamps_and_general_help()
+    {
+        var model = new Kscan.App.ViewModels.SettingsViewModel();
+        var page = new SettingsPage { DataContext = model };
+        var order = page.GetLogicalDescendants().OfType<RadioButton>().Select(x => x.CommandParameter as string).ToArray();
+        Assert.Equal(Array.IndexOf(order, "appearance") + 1, Array.IndexOf(order, "naming"));
+        Assert.Equal(Array.IndexOf(order, "recording") + 1, Array.IndexOf(order, "recognition"));
+        model.SelectSectionCommand.Execute("naming");
+        var names = Assert.IsType<NamingSettingsPanel>(page.FindControl<ContentControl>("NamingSectionHost")!.Content);
+        Assert.DoesNotContain(names.GetLogicalDescendants().OfType<Button>(), b => Equals(b.Content, "打开使用手册"));
+        Assert.Empty(names.GetLogicalDescendants().OfType<CheckBox>());
+        model.SelectSectionCommand.Execute("annotation");
+        Assert.IsType<StampSettingsPanel>(page.FindControl<ContentControl>("StampSectionHost")!.Content);
+        var help = page.FindControl<Button>("OpenManualButton")!;
+        var section = help.GetLogicalAncestors().OfType<Border>().First();
+        Assert.False(section.IsVisible);
+        model.SelectSectionCommand.Execute("general"); Assert.True(section.IsVisible);
+        model.SelectSectionCommand.Execute("recording");
+        var recording = Assert.IsType<RecordingSettingsPanel>(page.FindControl<ContentControl>("RecordingSectionHost")!.Content);
+        Assert.Single(recording.GetLogicalDescendants().OfType<CheckBox>().Where(c => c.Name == "RecordingStampToggle"));
+        Assert.Contains(recording.GetLogicalDescendants().OfType<Button>(), b => Equals(b.Content, "配置画面标注…"));
+    }
     private static readonly NamingContext Sample = new("gif", new DateTime(2026, 10, 28, 11, 30, 25), 640, 480, 7, "Example: window");
     [Theory]
     [InlineData("{type}_{date:yyyyMMdd}_{time:HHmmss}_{counter:000}", "gif_20261028_113025_007")]
@@ -64,7 +87,7 @@ public sealed class NamingTests
         var restored = System.Text.Json.JsonSerializer.Deserialize<NamingSettings>(System.Text.Json.JsonSerializer.Serialize(settings))!;
         NamingSettingsPanel.Validate(restored);
         Assert.Equal(settings.Templates["gif"], restored.Templates["gif"]);
-        Assert.Throws<FormatException>(() => NamingSettingsPanel.Validate(settings with { StampSize = 0 }));
+        Assert.Throws<FormatException>(() => StampSettingsPanel.Validate(settings with { StampSize = 0 }));
     }
     [AvaloniaFact]
     public void Recording_stamp_uses_fixed_or_live_time_and_renders_without_taking_focus()

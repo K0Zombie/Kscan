@@ -40,6 +40,25 @@ public sealed class RecordingSettingsPanel : UserControl
         var source = new ComboBox { ItemsSource = new[] { "无声", "系统声音", "麦克风", "系统声音 + 麦克风" }, SelectedIndex = Math.Max(0, Array.IndexOf(sourceKeys, settings.AudioSource)), HorizontalAlignment = HorizontalAlignment.Stretch };
         panel.Children.Add(source);
         var cursor = new CheckBox { Content = "显示鼠标指针", IsChecked = settings.DrawMouse }; panel.Children.Add(cursor);
+        var stampToggle = new CheckBox { Name = "RecordingStampToggle", Content = "显示画面标注", IsChecked = AppSettingsService.Current.Settings.Naming?.RecordStamp == true };
+        var stampSettings = new Button { Content = "配置画面标注…" };
+        stampSettings.Click += (_, _) => RecordingManager.ShowSettingsSection("annotation");
+        var refreshingStamp = false;
+        stampToggle.IsCheckedChanged += async (_, _) =>
+        {
+            if (refreshingStamp) return;
+            try { await AppSettingsService.Current.UpdateAsync(s => s with { Naming = (s.Naming ?? new()) with { RecordStamp = stampToggle.IsChecked == true } }); }
+            catch (Exception ex) { status.Text = ex.Message; }
+        };
+        EventHandler refreshStamp = (_, _) =>
+        {
+            refreshingStamp = true;
+            try { stampToggle.IsChecked = AppSettingsService.Current.Settings.Naming?.RecordStamp == true; }
+            finally { refreshingStamp = false; }
+        };
+        AttachedToVisualTree += (_, _) => { AppSettingsService.Current.Changed += refreshStamp; refreshStamp(this, EventArgs.Empty); };
+        DetachedFromVisualTree += (_, _) => AppSettingsService.Current.Changed -= refreshStamp;
+        panel.Children.Add(stampToggle); panel.Children.Add(stampSettings);
         kind.SelectionChanged += (_, _) =>
         {
             videoFps.IsVisible = kind.SelectedIndex == 0;
@@ -48,6 +67,7 @@ public sealed class RecordingSettingsPanel : UserControl
             fpsHint.Text = kind.SelectedIndex == 1 ? "建议 10–15 FPS" : "0 = 跟随显示器刷新率";
             source.IsVisible = audioLabel.IsVisible = kind.SelectedIndex != 1;
             cursor.IsVisible = kind.SelectedIndex != 2;
+            stampToggle.IsVisible = stampSettings.IsVisible = kind.SelectedIndex != 2;
             if (kind.SelectedIndex == 2 && source.SelectedIndex == 0) source.SelectedIndex = 1;
         };
         panel.Children.Add(new TextBlock { Text = "保存位置" });

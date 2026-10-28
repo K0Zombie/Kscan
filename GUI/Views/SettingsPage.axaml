@@ -77,12 +77,12 @@
                     Padding="0,0,12,0"
                     VerticalAlignment="Stretch">
                 <StackPanel Spacing="2">
-                    <RadioButton Classes="nav" GroupName="settingsSection" Content="命名与标注" Command="{Binding SelectSectionCommand}" CommandParameter="naming" IsChecked="{Binding SectionNaming, Mode=OneWay}" />
                     <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.General}" Command="{Binding SelectSectionCommand}" CommandParameter="general" IsChecked="{Binding SectionGeneral, Mode=OneWay}" />
-                    <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.Recording}" Command="{Binding SelectSectionCommand}" CommandParameter="recording" IsChecked="{Binding SectionRecording, Mode=OneWay}" />
                     <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.Theme}" Command="{Binding SelectSectionCommand}" CommandParameter="appearance" IsChecked="{Binding SectionAppearance, Mode=OneWay}" />
+                    <RadioButton Classes="nav" GroupName="settingsSection" Content="文件命名" Command="{Binding SelectSectionCommand}" CommandParameter="naming" IsChecked="{Binding SectionNaming, Mode=OneWay}" />
                     <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.Hotkey}" Command="{Binding SelectSectionCommand}" CommandParameter="hotkey" IsChecked="{Binding SectionHotkey, Mode=OneWay}" />
                     <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.Commands}" Command="{Binding SelectSectionCommand}" CommandParameter="commands" IsChecked="{Binding SectionCommands, Mode=OneWay}" />
+                    <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.Recording}" Command="{Binding SelectSectionCommand}" CommandParameter="recording" IsChecked="{Binding SectionRecording, Mode=OneWay}" />
                     <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.Recognition}" Command="{Binding SelectSectionCommand}" CommandParameter="recognition" IsChecked="{Binding SectionRecognition, Mode=OneWay}" />
                     <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.PinSection}" Command="{Binding SelectSectionCommand}" CommandParameter="pin" IsChecked="{Binding SectionPin, Mode=OneWay}" />
                     <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.MultiScreen}" Command="{Binding SelectSectionCommand}" CommandParameter="multiscreen" IsChecked="{Binding SectionMultiScreen, Mode=OneWay}" />
@@ -299,6 +299,7 @@
                 </StackPanel>
             </Border>
 
+            <Border Classes="section" IsVisible="{Binding SectionAnnotation}"><ContentControl x:Name="StampSectionHost" /></Border>
             <!-- 权限与管理员窗口 -->
             <Border Classes="section" IsVisible="{Binding SectionPermissions}">
                 <StackPanel Spacing="10">
@@ -332,6 +333,7 @@
                 </StackPanel>
             </Border>
 
+            <Border Classes="section" IsVisible="{Binding SectionGeneral}"><StackPanel Spacing="8"><Button x:Name="OpenManualButton" Content="打开使用手册" Click="OpenManual" /><TextBlock x:Name="ManualStatus" TextWrapping="Wrap" /></StackPanel></Border>
             <!-- 全局热键 -->
             <Border Classes="section" IsVisible="{Binding SectionHotkey}">
                 <StackPanel Spacing="10">

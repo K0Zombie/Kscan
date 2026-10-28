@@ -1,5 +1,5 @@
 <!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kscan - 命名规则</title><style>body{font:16px/1.8 system-ui,"Microsoft YaHei",sans-serif;color:#20242a;background:#fafafa;margin:0}main{max-width:1000px;margin:auto;padding:28px}a{color:#0869ba}nav{position:sticky;top:0;padding:10px 24px;background:#edf2f7;border-bottom:1px solid #b8c5d0}pre{overflow:auto;padding:16px;background:#e8edf2;border-radius:8px;white-space:pre-wrap}code{font-family:Consolas,monospace}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto}th,td{padding:8px 12px;border:1px solid #b8c5d0;text-align:left}h1,h2,h3{line-height:1.4} @media(prefers-color-scheme:dark){body{color:#eceff4;background:#191d24}a{color:#85c5ff}nav,pre{background:#282f3b}th,td{border-color:#526071}}</style></head><body><nav><a href="index.html">Kscan 使用手册</a></nav><main><h1>文件命名模板与高级规则</h1>
-<p>在设置 → 命名与标注选择类型，编辑模板，观察示例并保存。变量使用英文，说明使用中文。变量按钮插入到光标位置。示例使用样本宽高和计数，不会创建文件或消耗实际序号。</p>
+<p>在设置 → 文件命名选择类型，编辑模板，观察示例并保存。变量使用英文，说明使用中文。变量按钮插入到光标位置。示例使用样本宽高和计数，不会创建文件或消耗实际序号。</p>
 <p>支持 screenshot、scroll、annotation、pin、barcode、clipboard、video、gif、audio。screenshot 对应普通截图，scroll 对应长图，annotation 对应标注结果；pin 是贴图另存，barcode 是生成结果，clipboard 是保存剪贴板文本。普通截图及标注的复制操作也会为文件项使用这些模板。</p>
 <h2>基础变量</h2>
 <table><tbody>
@@ -24,25 +24,19 @@
 <p>条件写法为 <code>{if:变量=值?匹配时文字:否则文字}</code>，比较忽略大小写；分支是普通文字，不支持嵌套表达式。<code>{{</code> 和 <code>}}</code> 分别表示文字花括号。单个表达式不能嵌套，模板最长 2048 字符。</p>
 <p>非法文件名字符、目录分隔符和控制字符被替换，下尾句点、空格会去掉；Windows 保留名如 CON 自动加前缀，空名称变为 untitled。输出长度上限 180 字符。模板不能通过目录分隔符把文件写到其他目录。</p>
 <h2>JSON 规则</h2>
-<p>高级区可把当前编辑器内容生成 JSON；复制或粘贴后点击“应用到编辑器”，检查预览，再点保存。这里只放命名对象，不是整个 settings.json：</p>
+<p>高级区可把当前编辑器内容生成 JSON；复制或粘贴后点击“应用到编辑器”，检查预览，再点保存。这里只放 templates，不是整个 settings.json；画面标注请在“标注”页设置：</p>
 <pre><code>
 {
   &quot;templates&quot;: {
     &quot;video&quot;: &quot;{type}_{date:yyyyMMdd}_{time:HHmmss}_{counter:000}&quot;,
     &quot;gif&quot;: &quot;{if:type=gif?animation:recording}_{title|default:untitled|slug}_{counter:000}&quot;
-  },
-  &quot;stampTemplate&quot;: &quot;{date:yyyy-MM-dd} {time:HH:mm:ss}&quot;,
-  &quot;recordStamp&quot;: false,
-  &quot;liveStamp&quot;: true,
-  &quot;stampPosition&quot;: &quot;bottom-right&quot;,
-  &quot;stampSize&quot;: 20,
-  &quot;stampColor&quot;: &quot;#FFFFFFFF&quot;,
-  &quot;stampOpacity&quot;: 0.9
+  }
 }
 </code></pre>
 <p>未写入的输出类型使用默认文件模板。保存目录在截图/录制原有设置中选择，不写在模板里。已开始录制的文件名不会随实时水印时钟变化。</p>
 <h2>时间标注与程序员扩展</h2>
-<p>画面文字使用 stampTemplate，保留冒号等普通文本字符，不执行文件名清理。录制可选固定开始时间或实时更新；日期时间按系统本地时间生成。字号 8–96，透明度 0.1–1，位置可选 top-left、top-right、bottom-left、bottom-right，字体跟随主题。颜色可写 #AARRGGBB。</p>
+<p>画面文字在设置 → 标注中配置，使用 stampTemplate，保留冒号等普通文本字符，不执行文件名清理。录制可选固定开始时间或实时更新；日期时间按系统本地时间生成。字号 8–96，透明度 0.1–1，位置可选 top-left、top-right、bottom-left、bottom-right，字体跟随主题。颜色可写 #AARRGGBB。</p>
 <p>程序员可以引用 Core 的 <code>NameTemplate.Render(template, context, resolveToken: ...)</code>，注入自定义变量解析器；GUI 的公开 <code>FileNaming.RegisterToken(&quot;custom_project&quot;, context =&gt; &quot;ProjectA&quot;)</code> 可在宿主启动阶段注册扩展变量。扩展名称须以 custom_ 开头。</p>
 <p>这是代码集成接口，当前没有“把 DLL 放目录就自动加载”的插件管理器，也不从用户 JSON 执行 JavaScript、PowerShell、C# 或系统命令。GUI 的普通规则校验只接受内置变量；自行集成的宿主可使用 Core 接口对自定义规则作相同校验。JSON 字段和模板语法可直接供外部工具生成。</p>
+<p>文件命名的 JSON 导入只更改 templates；旧 JSON 中的标注字段不会覆盖现有画面标注。录制页保留启用开关及配置跳转，固定/实时与位置统一放在标注页。</p>
 </main></body></html>
