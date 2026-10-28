@@ -52,7 +52,7 @@ public static class ResultActions
     {
         try
         {
-            Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(target) { UseShellExecute = true, WorkingDirectory = AppContext.BaseDirectory });
             return Task.FromResult<(bool, string?)>((true, null));
         }
         catch (Exception ex)

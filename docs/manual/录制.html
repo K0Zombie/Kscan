@@ -1,0 +1,27 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kscan - 录制</title><style>body{font:16px/1.8 system-ui,"Microsoft YaHei",sans-serif;color:#20242a;background:#fafafa;margin:0}main{max-width:1000px;margin:auto;padding:28px}a{color:#0869ba}nav{position:sticky;top:0;padding:10px 24px;background:#edf2f7;border-bottom:1px solid #b8c5d0}pre{overflow:auto;padding:16px;background:#e8edf2;border-radius:8px;white-space:pre-wrap}code{font-family:Consolas,monospace}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto}th,td{padding:8px 12px;border:1px solid #b8c5d0;text-align:left}h1,h2,h3{line-height:1.4} @media(prefers-color-scheme:dark){body{color:#eceff4;background:#191d24}a{color:#85c5ff}nav,pre{background:#282f3b}th,td{border-color:#526071}}</style></head><body><nav><a href="index.html">Kscan 使用手册</a></nav><main><h1>GIF、视频与音频录制</h1>
+<p>仅录制功能分支提供此页功能，当前仅支持 Windows。</p>
+<h2>准备 FFmpeg</h2>
+<p>本便携包不捆绑 FFmpeg。安装你选择的 FFmpeg 构建并加入 PATH，或者在设置 → 录制 → 高级设置填写 <code>ffmpeg.exe</code> 的完整路径。路径填在专用字段，不加命令行参数；压缩参数填在编码参数字段。</p>
+<p>若检测失败，先运行 <code>ffmpeg -version</code>；有多个版本时以设置中的完整路径为准。软件编码需要 libx264 和 AAC，硬件编码还需要相应驱动与设备。Windows 10 2004 或更新版本支持完整的控件捕获排除能力。</p>
+<h2>录制流程</h2>
+<ol>
+<li>在设置 → 录制选择视频、GIF 或仅音频，调整帧率、音源、指针和保存位置。</li>
+<li>点击开始。视频和 GIF 进入实时框选：光标旁显示当前类型，拖动框选或单击顶层窗口；Esc、右键取消。录制选择器不会冻结底层画面或生成截图预览。</li>
+<li>编码器实际输出首帧后显示控制窗与计时。开始时延取决于设备、音源和编码器，不使用固定倒计时冒充正在录制。</li>
+<li>点停止并等待保存完成。视频为 MP4/H.264，音频为 M4A/AAC，GIF 不带声音。</li>
+</ol>
+<p>仅音频不需要框选，必须选择系统声音、麦克风或混合音源。可在高级设置指定具体设备，默认跟随系统默认设备。当前支持单声道和双声道，其他布局会提示切换设备。</p>
+<h2>帧率与保存</h2>
+<p>视频可设 1–360 FPS，0 表示读取选区覆盖最多的显示器刷新率，读取失败回退 60。GIF 默认 15，可设 1–60。帧率是 gdigrab 的采集目标，不是逐显示器刷新事件同步，不保证任意尺寸和硬件都满帧。</p>
+<p>首次没有保存目录时会询问目录。可按视频、GIF、音频分开保存，也可启用程序目录下的 <code>recordings/video</code>、<code>recordings/gif</code>、<code>recordings/audio</code>。在只读目录运行时改用可写目录。</p>
+<p>文件名由命名与标注页的 video、gif、audio 模板决定；编码进行时使用 .partial 扩展名，正常停止才改成最终文件名。重名会追加序号，不覆盖已有录制。异常结束保留非空临时文件并给出位置，恢复能力取决于文件是否已经完成封装。</p>
+<p>GIF 保存成功后自动复制完整文件，完成提示只保留预览、打开目录、关闭。按 F3 可贴出动图；解码超出贴图原有上限时显示首帧。视频和音频不自动复制。</p>
+<h2>鼠标、计时和画面文字</h2>
+<p>显示鼠标时使用与截图一致的指针尺寸和热点规则，考虑所在显示器 DPI 及系统指针大小。关闭该选项后不额外绘制鼠标。</p>
+<p>控制窗、录制边框、计时和框选提示被排除在成片外，并随主题变化。设置 → 命名与标注中的“录制时显示画面标注”是另一项功能：开启后自定义时间文字会进入成片。它可固定为开始时间或实时更新，并可设四角位置、字号、颜色与透明度，字体跟随主题。</p>
+<p>画面文字是桌面上可见的透明穿透图层，不会抢焦点；重叠选区的其他录制也可能捕获到它。时间约每250ms刷新，并非逐帧时间码。音频文件没有画面文字。截图编辑器插入的时间文字始终是固定、可编辑的标注。</p>
+<h2>多区域与性能</h2>
+<p>每次开始创建独立文件。可用“再录一个选区”增加会话，各自停止，也可停止全部。多个区域会同时占用采集、编码和磁盘资源；先用小区域验证性能再增加。</p>
+<p>内存使用有界输入缓冲并持续写盘，不会把全程原始帧堆在内存中。视频输入缓冲约 32MiB、PCM 输入约 1MiB、每音源缓冲约 500ms；这些不是整个进程的内存上限。编码器、滤镜和贴图解码还会占用额外内存。</p>
+<p>独占全屏、受保护窗口、混合 DPI 多屏、高帧率、多音源长时同步需结合实际设备验证。切换为窗口模式、缩小区域或降低帧率有助于定位瓶颈。</p>
+</main></body></html>

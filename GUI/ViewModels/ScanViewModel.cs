@@ -758,7 +758,7 @@ public sealed partial class ScanViewModel : ObservableObject
             if (await Views.ScrollCaptureWindow.CaptureAsync(selection) is not { } longImage) return;
             if (await Views.ScrollTrimWindow.EditAsync(longImage) is not { } trimmed) return;
             if (await Views.AnnotationWindow.EditAsync(trimmed, startAtActualSize: true) is not { } result) return;
-            var copied = await CopyFrameToClipboardAsync(result.Frame);
+            var copied = await CopyFrameToClipboardAsync(result.Frame, "scroll");
             SetStatus(copied ? "Str.Scan.AnnotatedToClipboard" : "Str.Scan.CopyFailed");
             if (result.Recognize) await LoadAsync(result.Frame, "Str.Scan.SourceAnnotation", autoCopy: false);
         }
@@ -900,7 +900,7 @@ public sealed partial class ScanViewModel : ObservableObject
             return;
         }
 
-        var copied = await CopyFrameToClipboardAsync(selection.Frame);
+        var copied = await CopyFrameToClipboardAsync(selection.Frame, "screenshot");
         RememberCapturePosition(selection, copied);
 
         SetStatus(copied
@@ -1257,8 +1257,8 @@ public sealed partial class ScanViewModel : ObservableObject
         }
     }
 
-    private static Task<bool> CopyFrameToClipboardAsync(ImageFrame frame) =>
-        ClipboardWriter.CopyAsync(frame, "screenshot");
+    private static Task<bool> CopyFrameToClipboardAsync(ImageFrame frame, string kind = "annotation") =>
+        ClipboardWriter.CopyAsync(frame, kind);
 
     /// <summary>把当前预览图贴到屏幕上（无边框置顶窗口，可拖动 / 缩放 / 穿透）。</summary>
     [RelayCommand]

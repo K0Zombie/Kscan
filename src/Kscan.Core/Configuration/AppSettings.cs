@@ -6,6 +6,7 @@ namespace Kscan.Core.Configuration;
 /// </summary>
 public sealed record AppSettings
 {
+    public NamingSettings Naming { get; init; } = new();
     public RecordingSettings Recording { get; init; } = new();
     /// <summary>配置结构版本，便于日后迁移（缺省即 1；2 起有"排除应用"与默认的框选排除热键）。</summary>
     public const int CurrentVersion = 14;

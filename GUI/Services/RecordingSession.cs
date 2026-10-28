@@ -11,6 +11,8 @@ internal sealed class RecordingSession
     private readonly Process _process;
     private readonly RecordingAudio? _audio;
     private RecordingCursor.Lease? _cursor;
+    private RecordingStamp? _stamp;
+    private FileNaming.PathLease? _nameReservation;
     private readonly string _partial;
     private readonly Queue<string> _errors = new();
     private readonly Stopwatch _clock = Stopwatch.StartNew();
@@ -88,15 +90,21 @@ internal sealed class RecordingSession
         if (fps is < 1 or > 360) throw new ArgumentException("帧率范围为 1–360。");
         Directory.CreateDirectory(directory);
         var extension = kind == RecordingKind.Gif ? ".gif" : kind == RecordingKind.Audio ? ".m4a" : ".mp4";
-        var output = Path.Combine(directory, $"kscan-{kind.ToString().ToLowerInvariant()}-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}" + extension);
+        var context = FileNaming.Context(kind.ToString().ToLowerInvariant(), region?.Width ?? 0, region?.Height ?? 0, extension: extension);
+        var nameReservation = FileNaming.ReservePath(directory, extension, context);
+        var output = nameReservation.Path;
         var partial = Path.ChangeExtension(output, ".partial" + extension);
         RecordingAudio? audio = null;
         Process? process = null;
         var started = false;
         RecordingCursor.Lease? cursor = null;
+        RecordingStamp? stamp = null;
         var startup = Stopwatch.StartNew();
         try
         {
+            var naming = AppSettingsService.Current.Settings.Naming ?? new();
+            if (region is { } area && naming.RecordStamp)
+                stamp = new RecordingStamp(area, context, naming);
             if (kind != RecordingKind.Audio && settings.DrawMouse) cursor = RecordingCursor.Acquire();
             if (kind != RecordingKind.Gif && settings.AudioSource != "none")
                 audio = new RecordingAudio(settings.AudioSource, settings.MicrophoneId, settings.OutputDeviceId);
@@ -107,6 +115,8 @@ internal sealed class RecordingSession
             process = new Process { StartInfo = start };
             var session = new RecordingSession(kind, region, fps, output, partial, process, audio);
             session._cursor = cursor;
+            session._stamp = stamp;
+            session._nameReservation = nameReservation;
             process.ErrorDataReceived += (_, e) =>
             {
                 if (e.Data is null) return;
@@ -127,6 +137,8 @@ internal sealed class RecordingSession
         {
             audio?.Dispose();
             cursor?.Dispose();
+            stamp?.Dispose();
+            nameReservation.Dispose();
             if (process is not null) { if (started && !process.HasExited) process.Kill(true); process.Dispose(); }
             // Preserve nonempty partial output for diagnosis/recovery.
             if (File.Exists(partial) && new FileInfo(partial).Length == 0) File.Delete(partial);
@@ -178,6 +190,6 @@ internal sealed class RecordingSession
             File.Move(_partial, Output);
             GuiLog.Write($"recording: saved {Output} duration={Elapsed}");
         }
-        finally { _audio?.Dispose(); _cursor?.Dispose(); _process.Dispose(); }
+        finally { _audio?.Dispose(); _cursor?.Dispose(); _stamp?.Dispose(); _nameReservation?.Dispose(); _process.Dispose(); }
     }
 }

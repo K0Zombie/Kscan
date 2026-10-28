@@ -617,6 +617,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public bool SectionGeneral => ActiveSection == "general";
     public bool SectionRecording => ActiveSection == "recording";
+    public bool SectionNaming => ActiveSection == "naming";
 
     public bool SectionAppearance => ActiveSection == "appearance";
 
@@ -652,6 +653,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(SectionGeneral));
         OnPropertyChanged(nameof(SectionRecording));
+        OnPropertyChanged(nameof(SectionNaming));
         OnPropertyChanged(nameof(SectionAppearance));
         OnPropertyChanged(nameof(SectionHotkey));
         OnPropertyChanged(nameof(SectionCommands));

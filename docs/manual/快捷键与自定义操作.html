@@ -1,0 +1,26 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kscan - 快捷键与自定义操作</title><style>body{font:16px/1.8 system-ui,"Microsoft YaHei",sans-serif;color:#20242a;background:#fafafa;margin:0}main{max-width:1000px;margin:auto;padding:28px}a{color:#0869ba}nav{position:sticky;top:0;padding:10px 24px;background:#edf2f7;border-bottom:1px solid #b8c5d0}pre{overflow:auto;padding:16px;background:#e8edf2;border-radius:8px;white-space:pre-wrap}code{font-family:Consolas,monospace}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto}th,td{padding:8px 12px;border:1px solid #b8c5d0;text-align:left}h1,h2,h3{line-height:1.4} @media(prefers-color-scheme:dark){body{color:#eceff4;background:#191d24}a{color:#85c5ff}nav,pre{background:#282f3b}th,td{border-color:#526071}}</style></head><body><nav><a href="index.html">Kscan 使用手册</a></nav><main><h1>快捷键与自定义命令</h1>
+<p>默认键只在新配置或相应迁移时补充；已有 data/settings.json 中清空或自定义过的键优先。先到设置 → 热键查看当前绑定，不以记忆中的默认值判断故障。</p>
+<table><tbody>
+<tr><td>常见默认键</td><td>功能</td></tr>
+<tr><td>F1</td><td>截图复制</td></tr>
+<tr><td>Ctrl+F1</td><td>截图扫码</td></tr>
+<tr><td>F3</td><td>贴剪贴板图片、动图或文字</td></tr>
+<tr><td>Ctrl+F3</td><td>截图并贴图</td></tr>
+<tr><td>Ctrl+Shift+F2</td><td>滚动截图</td></tr>
+<tr><td>Ctrl+Q</td><td>收起全部贴图</td></tr>
+<tr><td>Alt+Q</td><td>收起光标下贴图</td></tr>
+<tr><td>Ctrl+Shift+F3</td><td>切换光标下贴图置顶</td></tr>
+<tr><td>Ctrl+Shift+F4</td><td>打开贴图管理</td></tr>
+<tr><td>Ctrl+Alt+S</td><td>切换跨屏框选</td></tr>
+<tr><td>Ctrl+Alt+F5</td><td>显示主窗口</td></tr>
+<tr><td>Ctrl+Alt+Backspace</td><td>框选加入热键排除列表</td></tr>
+</tbody></table>
+<p>截图标注、剪贴板标注、屏幕批注也有可绑定动作；历史配置常用 Ctrl+Shift+F1、Ctrl+Shift+E、Ctrl+Alt+D，但本包的首次配置不保证全部预绑定。录制、录音、录制面板和停止全部默认为未绑定，避免抢占游戏按键。</p>
+<h2>冲突和排除</h2>
+<p>系统、其他截图软件、游戏或远程桌面可能先占用某组合。注册失败时改成其他键；全屏应用中可先验证窗口模式。可将应用加入排除列表，避免在它获得焦点时执行指定热键。鼠标手势和强制修饰键按各自设置执行。</p>
+<p>录制动作可切换最近的同类型会话；需要同类型多区域时从录制面板新开。Esc 在录制框选时取消选择，正式录制期间不全局抢占 Esc；控制窗获得焦点时 Esc 才停止该会话。</p>
+<h2>执行外部命令</h2>
+<p>设置 → 执行命令可分别填写程序、参数、工作目录并绑定热键。参数中的带空格路径需加英文双引号；需要 shell 语法时明确指定 powershell.exe 或 bash，而不是把管道符当普通程序参数。</p>
+<p>按实际需要选择管理员运行。程序本身提权时，未勾管理员的命令会尝试通过桌面普通令牌启动；无法取得普通令牌时明确报错，不悄悄升权。管理员实际环境仍需结合用户桌面验证。</p>
+<p>以保存笔记、归档文件为目的时，先在终端使用同样参数验证，再绑定快捷键。命名模板不是命令模板，不执行任何 shell 表达式。</p>
+</main></body></html>

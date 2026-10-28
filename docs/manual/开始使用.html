@@ -1,0 +1,21 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kscan - 开始使用</title><style>body{font:16px/1.8 system-ui,"Microsoft YaHei",sans-serif;color:#20242a;background:#fafafa;margin:0}main{max-width:1000px;margin:auto;padding:28px}a{color:#0869ba}nav{position:sticky;top:0;padding:10px 24px;background:#edf2f7;border-bottom:1px solid #b8c5d0}pre{overflow:auto;padding:16px;background:#e8edf2;border-radius:8px;white-space:pre-wrap}code{font-family:Consolas,monospace}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto}th,td{padding:8px 12px;border:1px solid #b8c5d0;text-align:left}h1,h2,h3{line-height:1.4} @media(prefers-color-scheme:dark){body{color:#eceff4;background:#191d24}a{color:#85c5ff}nav,pre{background:#282f3b}th,td{border-color:#526071}}</style></head><body><nav><a href="index.html">Kscan 使用手册</a></nav><main><h1>开始使用</h1>
+<h2>解压与启动</h2>
+<p>完整解压便携 ZIP，运行 <code>kscan-gui.exe</code>。不要只复制 exe，旁边的 DLL、原生库和资源都需要保留。自包含 Windows x64 包无需另外安装 .NET；录制另需 FFmpeg。</p>
+<p><code>kscan.exe</code> 是命令行工具，不能用双击闪过的控制台判断它是否启动成功。程序默认无需管理员权限；普通截图、扫码和贴图也不要求提权。</p>
+<p>同一用户仅运行一个实例。启动新目录的程序时，如果旧实例仍在托盘，通常只会唤起旧实例。换测试版前先在托盘菜单退出旧程序，再运行新目录中的 exe。关闭主窗口可能只是收进托盘；需要彻底退出时用托盘退出。</p>
+<h2>便携数据</h2>
+<p>根目录的 <code>portable</code> 是便携标记。启用时，设置在 <code>data/settings.json</code>，用户主题、命令和贴图库在 <code>data/user/</code>。设置页显示的实际路径最准确。</p>
+<p>迁移或备份时保留整个 <code>data/</code>，不要只保存 settings.json；贴图库的图片与 library.json 必须一起保留。录制文件可能另存在 Videos 或用户自选目录，也需单独备份。</p>
+<p>移除 portable 标记并重启会改用系统用户配置目录；Windows 通常为 <code>%APPDATA%/kscan/</code>。这不会自动迁移原便携 data。</p>
+<h2>升级与回退</h2>
+<ol>
+<li>先停止录制，等待文件完成保存，再退出托盘程序。</li>
+<li>备份原程序目录、data 和外部录制文件。</li>
+<li>建议先把新包解压到新目录测试。需要沿用设置时，在双方都退出后复制旧 data 到新目录。</li>
+<li>验证通过后再替换使用入口。旧 ZIP 和旧目录可保留用于回退。</li>
+</ol>
+<p>若覆盖升级，请覆盖完整程序文件集合而不是仅替换 exe 或某一个 DLL，且保留已有 data。不要同时把不同版本的 Core、Platform 和 GUI 文件混在一起。</p>
+<p>main 与录制分支是两套交付。本手册随功能分支包提供；main 0.1.16 中没有录制、命名规则设置页等新增能力。</p>
+<h2>找到功能</h2>
+<p>主窗口分为识别、生成、设置。录制放在设置 → 录制；命名和画面时间文字放在设置 → 命名与标注。录制快捷键默认未占用，可按习惯绑定。帮助按钮打开本地浏览器版手册。</p>
+</main></body></html>

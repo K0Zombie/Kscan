@@ -1,36 +1,13 @@
-# Kscan 0.1.1 · Linux
+# Linux 使用与平台边界
 
-解压后保留整个目录；无需安装 .NET。CLI：`./cli/kscan`；GUI：`./gui/kscan-gui`。
-GUI 需要 fontconfig、可用字体、X11/XWayland 及 libICE/libSM；Arch 可安装 `fontconfig ttf-dejavu libice libsm libx11 libxext libxrandr libxcursor libxi`。
-截图可选依赖：`grim slurp`；通知：`libnotify`；剪贴板管道：`wl-clipboard`。
+Windows 便携包不能直接作为 Linux 原生包。Linux 发布通常分为 cli/kscan 和 gui/kscan-gui；完整保留发布目录，自包含版本不要求另装 .NET 运行时。源码构建需要 .NET 10 SDK。
 
-```bash
-./cli/kscan version
-./cli/kscan doctor
-./cli/kscan gen 'Linux 扫码验证' -o /tmp/kscan-test.png
-./cli/kscan decode /tmp/kscan-test.png --json
-./cli/kscan capture --region --scan
-./cli/kscan capture --desktop -o /tmp/kscan-desktop.png
-```
+CLI 先运行 `kscan version`、`kscan doctor`，再用 `kscan gen hello -o test.png` 和 `kscan decode test.png` 自检。具体选项见 [命令行参考](../docs/manual/命令行参考.md)。
 
-`doctor` 输出实际能力、配置路径、IPC 端点。缺少截图工具会明确报告；取消 slurp 不再触发 grim。默认配置在 `$XDG_CONFIG_HOME/kscan/settings.json` 或 `~/.config/kscan/settings.json`。
+GUI 依赖可用的 fontconfig、字体和 X11/XWayland 支持，具体依赖以发行版为准。Wayland 截图可能需要 grim/slurp；CLI 的诊断输出反映实际能力。取消框选不会继续截图。缺少截图依赖不影响已有图片的识别和生成。
 
-## niri binds
+niri 等合成器可将实际安装路径的 `kscan-gui --capture` 绑定到系统快捷键；已有 GUI 时也可使用 `kscan toggle --capture`。没有运行实例时 toggle 返回 3。
 
-使用真实安装目录替换 `/opt/kscan`。GUI 已运行时转发命令，首次启动也会执行 `--capture`。
+原生 layer-shell OVERLAY 贴图尚未实现，目前是 Avalonia 普通窗口降级；Wayland 上不保证绝对定位、穿透或盖过独占全屏。不要把 WSL/WSLg 验证当作实际 niri 多屏验收。
 
-```kdl
-binds {
-    Mod+Shift+Q { spawn "/opt/kscan/gui/kscan-gui"; }
-    Mod+Shift+S { spawn "/opt/kscan/gui/kscan-gui" "--capture"; }
-}
-```
-
-也可先运行 GUI，再执行 `./cli/kscan toggle --capture`（无 GUI 时退出码 3）。CLI 的 `capture --scan` 在终端输出识别文本；GUI「截图并识别」在单结果时复制识别文本。
-
-## 验证范围
-
-Arch WSL 已验证 CLI 生成/识别、Unix socket、截图取消与子进程取消。WSLg 可用于 GUI 启动测试，不能代替 niri 验收。
-**原生 layer-shell OVERLAY 贴图尚未实现**；现为 Avalonia 普通窗口降级，在 Wayland 上不保证绝对定位、全屏上方置顶或鼠标穿透。不能将这些能力视为已完成。
-
-在真实 niri 桌面验证：启动 GUI；执行两次 `./gui/kscan-gui --capture`，分别框选和 Esc 取消；核对只存在一个 GUI 进程、取消不截图、识别文本进入剪贴板。再测试多屏、缩放与全屏窗口前贴图，并记录未满足的项。
+本录制分支的 gdigrab、WASAPI、录制图层为 Windows 实现，Linux 不提供同等录制入口。新命名引擎是跨平台代码，但平台捕获能力仍受各自实现限制。正常配置通常在 `$XDG_CONFIG_HOME/kscan` 或 `~/.config/kscan`，以 doctor 和设置页为准。

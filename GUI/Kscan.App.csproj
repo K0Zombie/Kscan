@@ -13,6 +13,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Include="../docs/manual/**" Link="帮助文档/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../docs/使用说明.md" Link="使用说明.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <!-- i18n 资源字典：运行时按语言加载 avares://<程序集>/Assets/i18n/<lang>.axaml -->
     <AvaloniaResource Include="Assets/**" />
   </ItemGroup>

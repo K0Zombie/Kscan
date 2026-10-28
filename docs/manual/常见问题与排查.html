@@ -1,0 +1,23 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kscan - 常见问题与排查</title><style>body{font:16px/1.8 system-ui,"Microsoft YaHei",sans-serif;color:#20242a;background:#fafafa;margin:0}main{max-width:1000px;margin:auto;padding:28px}a{color:#0869ba}nav{position:sticky;top:0;padding:10px 24px;background:#edf2f7;border-bottom:1px solid #b8c5d0}pre{overflow:auto;padding:16px;background:#e8edf2;border-radius:8px;white-space:pre-wrap}code{font-family:Consolas,monospace}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto}th,td{padding:8px 12px;border:1px solid #b8c5d0;text-align:left}h1,h2,h3{line-height:1.4} @media(prefers-color-scheme:dark){body{color:#eceff4;background:#191d24}a{color:#85c5ff}nav,pre{background:#282f3b}th,td{border-color:#526071}}</style></head><body><nav><a href="index.html">Kscan 使用手册</a></nav><main><h1>常见问题与排查</h1>
+<h2>启动、版本与闪退</h2>
+<p>启动新包却看到旧版，通常是旧实例仍在托盘。先退出旧程序再启动，记录实际运行目录和 BUILD-INFO.txt 中的分支/提交。不要混用不同包里的 GUI、Core、Platform 文件。</p>
+<p>闪退需要查看本次发生时间附近的记录。旧日志中出现过 <code>$Default</code> 字体无法创建 glyphTypeface；录制提示已改用标准文字控件修复此问题，不能据此把所有新闪退都归因于字体。</p>
+<p>优先查看 <code>%APPDATA%/kscan/crash.log</code>、gui.log；即使便携配置在 data，诊断日志也可能写在此用户目录。无法写入时会回退程序目录或临时目录。请提供发生时间、运行路径、操作步骤和末尾相关堆栈。没有新日志时再查 Windows 应用程序事件，不要把昨天的异常当成本次原因。</p>
+<h2>F3 没有贴出动图</h2>
+<p>先确认运行的是包含剪贴板文件读取功能的新录制分支。GIF 自动复制的是文件，不是位图；新 F3 会优先打开文件项并播放动画。目标文件被移动、删除或复制过程失败时，文件项无法使用。</p>
+<p>能贴出但不动，检查是否正在按定格键、是否是 APNG，以及是否超出 2048 单边、600 帧、200MiB 解码总内存限制。GIF 文件磁盘上很小不代表解码后内存小。超限会显示首帧，并在日志写原因。</p>
+<h2>文件管理器与聊天粘贴</h2>
+<p>截图提供位图和 PNG 文件项；录制 GIF 提供完整文件。资源管理器通常把文件项粘成文件。聊天软件可能选择按文件发送而不是按动画预览处理，此行为由目标软件决定。</p>
+<p>不要在旧截图仍在编码时连续复制多个不同内容来测试。程序会防止较旧的截图任务覆盖较新的剪贴板，但系统或目标软件也可能短暂占用剪贴板。复制慢时看日志的 encode、file、set 耗时。</p>
+<h2>录制启动失败或没有音频</h2>
+<p>先清空高级编码参数，使用默认 libx264，选小区域和较低帧率短录。核对 FFmpeg 路径、输出目录写权限、磁盘空间。硬件编码失败时先验证硬件驱动和该 FFmpeg 是否具备相应编码器。</p>
+<p>仅音频必须选音源；系统声音捕获的是选定输出设备，插拔耳机后可能要重新选设备。麦克风需要 Windows 权限和实际输入；静音时有持续音轨并不表示系统声音识别错误。混合设备的长时同步需实际验证。</p>
+<p>停止时要等文件完成封装，不能直接杀进程。打开预览失败和录制保存失败是两种情况，完成对话框和文件路径可帮助区分。非空 .partial 会保留；不要在未备份前直接改写它。</p>
+<h2>滚动截图不继续</h2>
+<p>检查暂停、像素上限、重叠内容和页面是否完成绘制。框选不要包含固定顶栏、悬浮层。向回滚动到上一段附近可重新匹配。缓存忙会暂缓采样并自动恢复；任意速度跨过完全没有捕获的内容不能自动补齐。</p>
+<h2>命名不生效</h2>
+<p>在正确输出类型下保存模板，再启动新操作。已开始的录制不会中途改名。counter 不是持久流水号；扩展名自动追加；重名有后缀属于保护行为。width、height 对音频或未知来源为 0。</p>
+<p>JSON 先应用到编辑器，再保存。未知变量或格式会被拒绝；手工改配置造成运行时规则错误时，文件命名会记录日志并回退默认模板。自定义脚本和任意命令不属于规则功能。</p>
+<h2>备份</h2>
+<p>保存旧便携包、完整 data、外部录制目录；源码 ZIP 用于开发恢复，不能替代用户数据。回退时用旧程序目录和相应数据备份，避免在唯一一份图库上直接做测试。</p>
+</main></body></html>

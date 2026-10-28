@@ -1996,7 +1996,7 @@ public partial class PinWindow : Window
         if (_player is not null && ImageFilePath is { Length: > 0 } source && File.Exists(source))
         {
             var extension = Path.GetExtension(source).TrimStart('.');
-            var copyPath = await ResultActions.PickSaveImageAsync(Path.GetFileName(source), extension);
+            var copyPath = await ResultActions.PickSaveImageAsync(FileNaming.Suggested("pin", extension, title: Path.GetFileNameWithoutExtension(source)), extension);
 
             if (copyPath is null)
             {
@@ -2021,7 +2021,7 @@ public partial class PinWindow : Window
         }
 
         var path = await ResultActions.PickSavePngAsync(
-            _sourceName is { Length: > 0 } name ? Path.ChangeExtension(name, ".png") : "pin.png");
+            FileNaming.Suggested("pin", "png", image.PixelSize.Width, image.PixelSize.Height, _sourceName ?? ""));
 
         if (path is null)
         {

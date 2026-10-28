@@ -1,0 +1,26 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kscan - 标注</title><style>body{font:16px/1.8 system-ui,"Microsoft YaHei",sans-serif;color:#20242a;background:#fafafa;margin:0}main{max-width:1000px;margin:auto;padding:28px}a{color:#0869ba}nav{position:sticky;top:0;padding:10px 24px;background:#edf2f7;border-bottom:1px solid #b8c5d0}pre{overflow:auto;padding:16px;background:#e8edf2;border-radius:8px;white-space:pre-wrap}code{font-family:Consolas,monospace}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto}th,td{padding:8px 12px;border:1px solid #b8c5d0;text-align:left}h1,h2,h3{line-height:1.4} @media(prefers-color-scheme:dark){body{color:#eceff4;background:#191d24}a{color:#85c5ff}nav,pre{background:#282f3b}th,td{border-color:#526071}}</style></head><body><nav><a href="index.html">Kscan 使用手册</a></nav><main><h1>截图标注与时间文字</h1>
+<p>截图标注、标注剪贴板、屏幕批注是独立入口，不会改变截图扫码或直接贴图的流程。小选区可进入快速标注，大区域或需要完整编辑时进入独立编辑器。滚动长图在完成裁切后进入独立编辑器。</p>
+<h2>绘图与编辑</h2>
+<table><tbody>
+<tr><td>工具</td><td>操作</td></tr>
+<tr><td>选择</td><td>点击或框选，Shift 多选，拖动移动，拖端点调整</td></tr>
+<tr><td>矩形 / 椭圆</td><td>拖动；Shift 约束为正方形 / 圆</td></tr>
+<tr><td>直线 / 箭头 / 尺寸</td><td>拖动；Shift 锁定 45&#176;，尺寸以图片像素计算</td></tr>
+<tr><td>画笔 / 高亮</td><td>按住拖动，高亮使用半透明笔迹</td></tr>
+<tr><td>文字</td><td>点击图片输入；选择后双击可编辑</td></tr>
+<tr><td>序号</td><td>单击放置，自动递增</td></tr>
+<tr><td>马赛克</td><td>拖出遮盖区，颗粒可调整</td></tr>
+<tr><td>折线</td><td>逐点点击，Enter 或双击结束，Esc 取消</td></tr>
+<tr><td>裁剪</td><td>拖出范围，选中后 Delete 移除裁剪</td></tr>
+<tr><td>聚光 / 放大镜</td><td>框出突出区域或展示局部放大</td></tr>
+</tbody></table>
+<p>滚轮缩放，中键平移；方向键微移，Shift+方向键移动 10 像素。修改属性、移动和删除均可撤销。显示比例只影响查看，不会缩小导出像素。</p>
+<h2>文字与时间标注</h2>
+<p>普通文字可以调整字号、颜色、换行宽度。文字宽度 0 表示自动宽度。输入时 Enter 换行，Ctrl+Enter 确认文字，Esc 取消本次输入；点击画布也会确认文字。</p>
+<p>独立编辑器的“插入时间标注”使用设置 → 命名与标注中的文字模板。例如 <code>{date:yyyy-MM-dd} {time:HH:mm:ss}</code>。插入的是当时的固定文字，之后可以选择、拖动、改色、删除和撤销，不会每秒变化。</p>
+<p>插入位置在图像左上方，便于继续拖动；字号、颜色、透明度来自时间标注设置。录制文字的四角位置与实时开关只用于录制，不会把普通截图变成活动时钟。</p>
+<h2>完成与取消</h2>
+<p>画布空闲时 Ctrl+Enter 完成并复制；Ctrl+Z 撤销，Ctrl+Y 或 Ctrl+Shift+Z 重做，Delete 删除选中项。正在输入文字时，第一次 Ctrl+Enter 先确认文字。</p>
+<p>Esc 优先取消当前绘制、输入或选择；空闲无选中对象时取消整个编辑。使用原图会跳过标注；识别会先完成结果再识别。导出失败会保留编辑内容供重试。</p>
+<p>文件命名模板与画面文字分开。改文件名不会给图片增加水印；插入时间文字也不会强制改变文件名。</p>
+</main></body></html>

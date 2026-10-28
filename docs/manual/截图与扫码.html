@@ -1,0 +1,23 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kscan - 截图与扫码</title><style>body{font:16px/1.8 system-ui,"Microsoft YaHei",sans-serif;color:#20242a;background:#fafafa;margin:0}main{max-width:1000px;margin:auto;padding:28px}a{color:#0869ba}nav{position:sticky;top:0;padding:10px 24px;background:#edf2f7;border-bottom:1px solid #b8c5d0}pre{overflow:auto;padding:16px;background:#e8edf2;border-radius:8px;white-space:pre-wrap}code{font-family:Consolas,monospace}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto}th,td{padding:8px 12px;border:1px solid #b8c5d0;text-align:left}h1,h2,h3{line-height:1.4} @media(prefers-color-scheme:dark){body{color:#eceff4;background:#191d24}a{color:#85c5ff}nav,pre{background:#282f3b}th,td{border-color:#526071}}</style></head><body><nav><a href="index.html">Kscan 使用手册</a></nav><main><h1>截图、扫码与条码生成</h1>
+<h2>选择流程</h2>
+<table><tbody>
+<tr><td>操作</td><td>默认入口</td><td>结果</td></tr>
+<tr><td>截图复制</td><td>F1</td><td>位图与 PNG 文件项写入剪贴板</td></tr>
+<tr><td>截图扫码</td><td>Ctrl+F1</td><td>识别选区中的二维码或条码</td></tr>
+<tr><td>截图贴图</td><td>Ctrl+F3</td><td>显示贴图窗口</td></tr>
+<tr><td>截图标注</td><td>Ctrl+Shift+F1，可配置</td><td>先编辑再复制</td></tr>
+</tbody></table>
+<p>拖动选择区域；Esc 取消。窗口或元素识别的范围和修饰键由设置决定。截图选择器会显示捕获时的画面，这与保持桌面实时更新的录制选择器不同。</p>
+<p>Ctrl+F1 识别完成是否显示主窗口，由设置 → 识别中的“截图扫码后自动打开主页面”控制，默认关闭。此开关不改变 F1、Ctrl+F3 的流程，取消框选也不会触发它。</p>
+<h2>多显示器</h2>
+<p>设置中开启跨屏框选，或使用 Ctrl+Alt+S 切换。开启后可拖过多个显示器，按物理像素合成，不同缩放不会把输出统一压成某个屏的尺寸。屏幕之间的空档可选透明或黑色。布局在选区过程中变化时，本次操作会取消。</p>
+<p>跨屏窗口识别只识别顶层窗口，不运行子元素识别。需要更细区域时手动拖动。当前屏和跨屏的输入行为以设置页说明为准。</p>
+<h2>识别已有图片</h2>
+<p>识别页支持打开图片、粘贴剪贴板图片、拖入文件及框选。一个画面有多个码时可以返回多条结果；结果内容会按链接、电话、邮件、地理位置等提供操作。自动打开链接默认关闭，只有用户开启后才会拉起默认浏览器。</p>
+<p>剪贴板监听也默认关闭，开启后才会自动处理新的图片。程序自己写入的剪贴板会作标记，避免循环识别。</p>
+<p>扫码登录仍取决于目标服务的认证机制。识别登录二维码不等于能替手机微信确认授权，也不能仅凭电脑微信已登录就自动完成任意网站的手机扫码登录。</p>
+<h2>生成二维码与条码</h2>
+<p>生成页选择码制并输入内容。二维码可调整纠错、尺寸、颜色、静区；二维码加 Logo 时应保留足够纠错和静区，并实际扫码验证。支持的码制以码制列表为准。</p>
+<p>生成结果可以复制、保存或贴出。文件保存对话框仍允许手动修改建议文件名；模板只负责给出初始名称。CLI 可生成 PNG、SVG 或终端字符画，详见命令行参考。</p>
+<p>PNG 截图是无损压缩，复制不会缩小像素尺寸。位图和文件项让聊天软件、图片编辑器与资源管理器按各自支持的格式粘贴。复制比较慢时，先看日志中的编码、落盘和剪贴板发布耗时，不要通过反复截图判断是否失败。</p>
+</main></body></html>

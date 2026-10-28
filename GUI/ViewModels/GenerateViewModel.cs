@@ -224,7 +224,7 @@ public sealed partial class GenerateViewModel : ObservableObject
             return;
         }
 
-        var path = await ResultActions.PickSavePngAsync($"{SelectedFormat.ToLowerInvariant()}.png");
+        var path = await ResultActions.PickSavePngAsync(FileNaming.Suggested("barcode", "png", Preview.PixelSize.Width, Preview.PixelSize.Height, SelectedFormat.ToLowerInvariant()));
         if (path is null)
         {
             return;

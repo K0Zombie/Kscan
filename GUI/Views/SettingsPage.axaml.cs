@@ -24,5 +24,7 @@ public partial class SettingsPage : UserControl
     {
         if (_settings?.SectionRecording == true && RecordingSectionHost.Content is null)
             RecordingSectionHost.Content = new RecordingSettingsPanel();
+        if (_settings?.SectionNaming == true && NamingSectionHost.Content is null)
+            NamingSectionHost.Content = new NamingSettingsPanel();
     }
 }

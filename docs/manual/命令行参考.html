@@ -1,0 +1,82 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kscan - 命令行参考</title><style>body{font:16px/1.8 system-ui,"Microsoft YaHei",sans-serif;color:#20242a;background:#fafafa;margin:0}main{max-width:1000px;margin:auto;padding:28px}a{color:#0869ba}nav{position:sticky;top:0;padding:10px 24px;background:#edf2f7;border-bottom:1px solid #b8c5d0}pre{overflow:auto;padding:16px;background:#e8edf2;border-radius:8px;white-space:pre-wrap}code{font-family:Consolas,monospace}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto}th,td{padding:8px 12px;border:1px solid #b8c5d0;text-align:left}h1,h2,h3{line-height:1.4} @media(prefers-color-scheme:dark){body{color:#eceff4;background:#191d24}a{color:#85c5ff}nav,pre{background:#282f3b}th,td{border-color:#526071}}</style></head><body><nav><a href="index.html">Kscan 使用手册</a></nav><main><h1>命令行参考</h1>
+<p>Windows 在解压目录打开 PowerShell，使用 <code>./kscan.exe</code>；Linux 使用安装后的 kscan 或实际文件路径。命令行程序不提供 GUI 录制命令，文件命名模板也不会改写用户明确传给 CLI 的 -o 路径。</p>
+<h2>常用示例</h2>
+<pre><code>
+kscan decode screenshot.png --json
+kscan gen &quot;hello&quot; -o hello.png
+kscan gen &quot;https://example.com&quot; -o site.svg --svg
+kscan build wifi --ssid MyWiFi --password 12345678 -o wifi.png
+kscan build vcard --name 张三 --tel +8613800138000 -o contact.png
+kscan formats
+kscan doctor
+kscan version
+kscan help
+</code></pre>
+<p>decode 可接受多文件、--single、--json、--verbose，输入 - 表示 stdin。传输 PNG 等二进制时使用保持字节的管道；Windows PowerShell 5.1 的文本管道不适合直接传图片字节。</p>
+<p>gen 的颜色、静区、纠错、Logo 与字符画选项见随包 help。纠错级别主要针对 QR；Logo 会遮挡内容，输出后要实扫。build 负责把 Wi-Fi、联系人、网址、邮件、电话、短信、位置等内容拼成码，不是执行用户脚本。</p>
+<p>capture 的框选通道依平台而异。Windows CLI 不提供 GUI 框选，请用 GUI 热键；Linux 截屏可能依赖 grim/slurp 等外部工具，doctor 输出可用于检查支持情况。</p>
+<p>toggle 向当前用户的已运行 GUI 发送命令；没有 GUI 实例时退出码 3，不会代替用户启动一整套交互流程。通用退出码：0 成功，1 未识别到码，2 参数或读写错误；具体命令以实际输出为准。</p>
+<h2>当前命令完整帮助</h2>
+<p>下方由同一份 CLI 源码的 help 文本生成。</p>
+<pre><code>
+kscan — 跨平台二维码/条码扫描与生成（命令行）
+
+用法:
+  kscan decode &lt;图片&gt;... [--single] [--json] [--verbose]   识别图片中的码（&quot;-&quot; = 从 stdin 读）
+  kscan gen &lt;文本&gt; [输出路径] [生成选项]                    生成条码（见下方选项）
+  kscan build &lt;类型&gt; [字段...] [生成选项]                   用模板拼内容再生成（见下方模板）
+  kscan formats                                           列出可生成的码制
+  kscan capture [--region|--desktop] [--scan] [-o 文件]     截图（Linux 走 grim+slurp）
+  kscan toggle [--capture]                                把命令交给已运行的 GUI（无实例时退出码 3）
+  kscan version
+  kscan doctor                                            显示配置、单实例端点与平台能力（JSON）
+  kscan help
+
+管道用法（Linux 截图工具可以直接接进来）:
+  flameshot gui -r | kscan decode -
+  kscan capture --region --scan
+  kscan gen &quot;https://example.com&quot; -o - | wl-copy
+
+截图（kscan capture）:
+  kscan capture --region --scan             框选后直接识别并打印结果
+  kscan capture --region -o shot.png        框选后存成文件
+  kscan capture --desktop -o screen.png     整个虚拟桌面存成文件
+  kscan capture --region --scan --notify    识别后发系统通知（Linux/notify-send）
+  Windows 命令行下没有框选通道，--region 请改用 GUI；Linux 需要 grim + slurp。
+
+生成选项:
+  -f, --format &lt;码制&gt;    默认 QR_CODE（kscan formats 可查看全部）
+  -s, --size &lt;像素&gt;      宽度，默认 320（2D 码同时作为高度基准）
+      --height &lt;像素&gt;    高度，默认 0 = 自动（2D 方形，1D 取 120）
+  -m, --margin &lt;模块数&gt;  静区，默认 4
+      --ecc &lt;L|M|Q|H&gt;    QR 纠错级别，默认 M
+      --fg &lt;颜色&gt;        前景色，默认 #000000
+      --bg &lt;颜色&gt;        背景色，默认 #FFFFFF
+  -o, --output &lt;路径&gt;    输出路径；写 &quot;-&quot; 则输出到 stdout（--ascii 时可省略）
+      --svg              输出 SVG 矢量图
+      --logo &lt;图片&gt;      在中心叠加 Logo（仅 PNG；建议配 --ecc H）
+      --logo-scale &lt;比例&gt; Logo 宽度占比，默认 0.22
+  -a, --ascii            输出等宽字符画（终端可直接扫）
+      --ascii-style &lt;half|blocks|hash|chars&gt;   字符画风格，默认 half
+      --chars &lt;深色字符&gt; 配合 --ascii-style chars
+      --ascii-rows &lt;行数&gt; 字符画每行重复次数（1D 码默认 8 行，才够高可扫）
+      --invert           字符画反色（浅色终端）
+
+内容模板（kscan build &lt;类型&gt;）:
+  wifi   --ssid &lt;名&gt; [--password &lt;密码&gt;] [--security WPA|WEP|nopass] [--hidden]
+  vcard  --name &lt;姓名&gt; [--org &lt;单位&gt;] [--title &lt;职务&gt;] [--tel &lt;电话&gt;] [--email &lt;邮箱&gt;] [--url &lt;网址&gt;] [--note &lt;备注&gt;]
+  url    &lt;网址&gt;
+  email  --to &lt;地址&gt; [--subject &lt;主题&gt;] [--body &lt;正文&gt;]
+  tel    &lt;号码&gt;
+  sms    --to &lt;号码&gt; [--message &lt;内容&gt;]
+  geo    &lt;纬度&gt; &lt;经度&gt; [--label &lt;标签&gt;]
+
+  示例:
+    kscan build wifi --ssid MyWiFi --password 12345678 -o wifi.png
+    kscan build vcard --name 张三 --tel +8613800138000 -o zhang.png
+    kscan build url example.com -o site.svg --svg
+    kscan build geo 39.9042 116.4074 --label 天安门 -o map.png
+
+退出码: 0 = 成功，1 = 未识别到码，2 = 参数错误或读写失败
+</code></pre>
+</main></body></html>

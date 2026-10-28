@@ -314,6 +314,7 @@ internal sealed class AnnotationWindow : Window
         _delete = ActionButton("删除选中", () => { CancelText(); _canvas.CancelGesture(); _document.Delete(); _canvas.Focus(); });
         properties.Children.Add(_delete);
         properties.Children.Add(ActionButton("清空标注", () => { CancelText(); _canvas.CancelGesture(); _document.Clear(); _canvas.Focus(); }));
+        properties.Children.Add(ActionButton("插入时间标注", InsertTimeStamp));
         properties.Children.Add(Theme(new TextBlock { Text = "滚轮缩放 · 中键平移\nShift 约束绘图 / 多选\nCtrl+Z 撤销 · Ctrl+Y 重做\nDelete 删除 · 方向键微移\nCtrl+Enter 完成并复制", FontSize = 11, LineHeight = 21, TextWrapping = TextWrapping.Wrap }, TextBlock.ForegroundProperty, "KscanMutedBrush"));
         var propertyScroll = new ScrollViewer { Content = properties, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
         Theme(propertyScroll, ScrollViewer.BackgroundProperty, "KscanPanelBrush");
@@ -616,6 +617,20 @@ internal sealed class AnnotationWindow : Window
         _undo.IsEnabled = _document.CanUndo; _redo.IsEnabled = _document.CanRedo; SyncProperties(); UpdateStats();
     }
     private void UpdateStats() => _stats.Text = $"{_source.Width} × {_source.Height}  ·  {_document.Items.Count} 个标注  ·  {_canvas.Viewport.Scale * RenderScaling * 100:0}%";
+    internal void InsertTimeStamp()
+    {
+        try
+        {
+            var settings = AppSettingsService.Current.Settings.Naming ?? new();
+            var color = Avalonia.Media.Color.Parse(settings.StampColor);
+            var alpha = (byte)(color.A * Math.Clamp(settings.StampOpacity, .1, 1));
+            _document.Add(new AnnotationItem { Tool = AnnotationTool.Text, Text = FileNaming.Render(FileNaming.Context("annotation", _source.Width, _source.Height), settings, true),
+                Points = [new SKPoint(12, 12)], Color = ((uint)alpha << 24) | ((uint)color.R << 16) | ((uint)color.G << 8) | color.B,
+                FontSize = (float)(double.IsFinite(settings.StampSize) ? Math.Clamp(settings.StampSize, 8, 96) : 20), Thickness = 1, TextWidth = Math.Max(1, _source.Width - 24) });
+            SelectTool(AnnotationTool.Select);
+        }
+        catch (Exception ex) { _status.Text = ex.Message; }
+    }
 
     protected override void OnKeyDown(KeyEventArgs e)
     {

@@ -1,0 +1,22 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kscan - 滚动截图</title><style>body{font:16px/1.8 system-ui,"Microsoft YaHei",sans-serif;color:#20242a;background:#fafafa;margin:0}main{max-width:1000px;margin:auto;padding:28px}a{color:#0869ba}nav{position:sticky;top:0;padding:10px 24px;background:#edf2f7;border-bottom:1px solid #b8c5d0}pre{overflow:auto;padding:16px;background:#e8edf2;border-radius:8px;white-space:pre-wrap}code{font-family:Consolas,monospace}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto}th,td{padding:8px 12px;border:1px solid #b8c5d0;text-align:left}h1,h2,h3{line-height:1.4} @media(prefers-color-scheme:dark){body{color:#eceff4;background:#191d24}a{color:#85c5ff}nav,pre{background:#282f3b}th,td{border-color:#526071}}</style></head><body><nav><a href="index.html">Kscan 使用手册</a></nav><main><h1>滚动截图</h1>
+<h2>完整操作</h2>
+<ol>
+<li>按 Ctrl+Shift+F2，框选同一屏幕内真正会滚动的内容区。</li>
+<li>将鼠标放回选区内，手动向下或向上滚动。顶部新增内容接在长图前，底部新增内容接在长图后。</li>
+<li>查看选区旁的实时预览。暂停时可以检查页面，再继续采集。</li>
+<li>完成时点“完成并调整起止”，按行精细裁切开头、结尾。</li>
+<li>进入标注编辑器；长图默认按 100% 从顶部查看。完成后复制，不会为了适应屏幕而压缩原图。</li>
+</ol>
+<p>选区以外变暗并显示边框，工具栏与预览不会被遮罩盖住。Esc 或取消按钮退出；暂停和等待拼接时也可退出。退出后清除遮罩并停止采集。</p>
+<h2>快速滚动与重复区域</h2>
+<p>采集目标间隔为 40ms，后台按顺序拼接，队列有界。队列忙时临时缓采，腾出后继续，不会因为缓存满永久暂停。</p>
+<p>上下往返到已采集范围时只更新位置，不重复加图。“撤销上一段”按新增时间顺序撤销，既能撤销顶部段也能撤销底部段。主动暂停会保持暂停提示，不会被排队帧覆盖。</p>
+<p>拼接仍需要重叠内容，通常至少 32 行或选区高度的 5%，取较大者。一下跳过整屏、页面还未绘制好或内容被虚拟列表替换时，软件无法补出从未捕获的部分。此时回滚到上一段附近，减慢滚动重新接续。</p>
+<h2>预览与裁切</h2>
+<p>实时大预览优先放在框选旁的空白位置，优先左右侧，再尝试上下方或其他屏幕。空间不足时保留工具栏小预览。预览刷新不会复制整张长图。</p>
+<p>点击预览或放大预览会暂停采集，以原始像素查看，支持缩放、滚动、适应宽度。关闭后恢复之前的状态。按一次 Esc 先关闭放大预览；松开后再次按 Esc 才取消整个采集。</p>
+<p>起止裁切按原始行号处理；界面主题跟随软件。进入标注后还可继续裁剪，导出只取裁剪范围。</p>
+<h2>上限与排查</h2>
+<p>默认上限为 100000 行和 1.28 亿像素，先达到哪个就停止扩展；宽度越大，可用行数越少。工具栏会显示当前宽度对应的限制。位图、预览、历史与编解码还会额外使用内存，不能把像素上限当作总内存上限。</p>
+<p>滚动后未接上时先看：是否主动暂停、是否接近像素限制、是否选进固定工具栏、是否完全没有重叠、页面是否在异步加载。不要把固定顶栏和悬浮广告包含在采集区域里；它们会干扰匹配。</p>
+</main></body></html>

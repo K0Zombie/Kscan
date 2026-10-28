@@ -51,7 +51,6 @@ internal static class ClipboardWriter
     /// <summary>保留最近的临时 PNG 数量，超出的旧文件在每次写入后清掉。</summary>
     private const int KeepFiles = 200;
     private static readonly ClipboardCopyGate CopyGate = new();
-    private static long _fileId;
     private static int _pruneRunning;
     private static long _nextPruneTime;
     private static ClipboardCopyGate.Ticket BeginCopy() => CopyGate.Begin(PlatformServices.ClipboardWatcher.SequenceNumber);
@@ -88,7 +87,7 @@ internal static class ClipboardWriter
         try { bytes = (encoder ?? SkiaImageCodec.EncodePngFast)(frame); }
         catch (Exception ex) { GuiLog.Write($"clipboard: png encode failed ({ex.Message})"); return null; }
         var encodeMs = watch.ElapsedMilliseconds;
-        var path = await TryWriteTempPngAsync(baseName, file => File.WriteAllBytesAsync(file, bytes));
+        var path = await TryWriteTempPngAsync(baseName, file => File.WriteAllBytesAsync(file, bytes), frame.Width, frame.Height);
         GuiLog.Write($"perf: clipboard png {frame.Width}x{frame.Height} encode={encodeMs}ms file={watch.ElapsedMilliseconds - encodeMs}ms bytes={bytes.Length}");
         return path;
     });
@@ -154,7 +153,7 @@ internal static class ClipboardWriter
             // RenderTargetBitmap 等由 UI 后端持有，保留原线程保存以保证生命周期与线程兼容。
             bitmap.Save(pngPath, new PngBitmapEncoderOptions { CompressionLevel = CompressionLevel.Fastest });
             return Task.CompletedTask;
-        });
+        }, bitmap.PixelSize.Width, bitmap.PixelSize.Height);
 
         return await SetAsync(bitmap, path, ticket);
     }
@@ -169,7 +168,7 @@ internal static class ClipboardWriter
     /// 失败原因写进 gui.log —— 只靠界面那句"剪贴板不可用"没法定位问题。
     /// </para>
     /// </summary>
-    internal static async Task<string?> TryWriteTempPngAsync(string baseName, Func<string, Task> write)
+    internal static async Task<string?> TryWriteTempPngAsync(string baseName, Func<string, Task> write, int width = 0, int height = 0)
     {
         var directories = _usableDirectory is { } known
             ? new[] { known }.Concat(CandidateDirectories().Where(dir => dir != known))
@@ -177,7 +176,9 @@ internal static class ClipboardWriter
 
         foreach (var directory in directories)
         {
-            var path = Path.Combine(directory, FileName(baseName));
+            var kind = baseName is "screenshot" or "scroll" or "annotation" or "barcode" ? baseName : "pin";
+            using var reservation = FileNaming.ReservePath(directory, ".png", FileNaming.Context(kind, width, height, extension: "png"));
+            var path = reservation.Path;
 
             try
             {
@@ -198,10 +199,6 @@ internal static class ClipboardWriter
 
         return null;
     }
-
-    private static string FileName(string baseName) =>
-        // 文件名带时间戳：粘出去的文件得一直有效，不能互相覆盖
-        $"{baseName}-{DateTime.Now:yyyyMMdd-HHmmss-fff}-{Interlocked.Increment(ref _fileId)}.png";
 
     private static void SchedulePrune(string directory)
     {

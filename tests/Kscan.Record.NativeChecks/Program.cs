@@ -26,6 +26,30 @@ sealed class NativeCheckApp : Application
     {
         base.OnFrameworkInitializationCompleted();
         var desktop = (IClassicDesktopStyleApplicationLifetime)ApplicationLifetime!;
+        if (Environment.GetCommandLineArgs().Contains("--naming-smoke"))
+        {
+            var shell = new Window { Content = new ScrollViewer { Content = new NamingSettingsPanel() }, Width = 1050, Height = 800,
+                Title = "Kscan naming smoke", ShowActivated = false };
+            ThemeService.Current.Apply(ThemeDefinition.Light); shell.Show();
+            var smokeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(450) };
+            smokeTimer.Tick += (_, _) =>
+            {
+                smokeTimer.Stop();
+                try
+                {
+                    foreach (var theme in new[] { ThemeDefinition.Light, ThemeDefinition.Dark })
+                    {
+                        ThemeService.Current.Apply(theme);
+                        using var bitmap = new Avalonia.Media.Imaging.RenderTargetBitmap(new PixelSize(1050, 800));
+                        bitmap.Render(shell); bitmap.Save(Path.Combine(AppContext.BaseDirectory, "naming-smoke-" + theme.Id + ".png"));
+                        Console.WriteLine("PASS: naming page rendered " + theme.Id);
+                    }
+                    shell.Close(); desktop.Shutdown(0);
+                }
+                catch (Exception ex) { Console.WriteLine(ex); desktop.Shutdown(1); }
+            };
+            smokeTimer.Start(); return;
+        }
         if (Environment.GetCommandLineArgs().Contains("--render-smoke"))
         {
             var screen = new ScreenInfo(new PixelRect(0, 0, 800, 600), 1);

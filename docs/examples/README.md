@@ -1,77 +1,46 @@
-# Kscan 0.1.16 示例
+# Kscan 示例与集成
 
-这些是可复制、可运行的示例。所有输出建议先放到临时目录；文件归档默认复制，只有明确添加移动参数才移动原文件。
+操作手册已统一到 [帮助目录](../manual/index.md)。此目录保留可运行示例，输出请先放到临时目录验证，脚本不会自动查找聊天软件私有目录。
 
-## 1. 二维码生成与识别自检（Windows）
+## Windows CLI 自检
+
+在完整便携包根目录运行：
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\docs\examples\cli-demo.ps1 -OutputDirectory .\demo-output
 ```
 
-脚本自动找到便携包根目录的 `kscan.exe`，生成二维码、SVG、Wi-Fi 码，再读取二维码核对文本，失败时返回非零退出码。可通过 `-Kscan` 指定其他路径。不会截图、联网或修改个人设置。
+脚本生成二维码、SVG、Wi-Fi 码并解码核对；可用 -Kscan 指定命令行程序路径。失败返回非零退出码，不截图、不联网、不修改个人配置。
 
-## 2. 截图识别到当天笔记（Windows）
+## 截图识别到笔记
 
-1. 用 F1 截取带码的图片，或在标注后完成复制。
-2. 运行下面的命令。`-STA` 用于访问 Windows 剪贴板。
+F1 截图后运行下例；-STA 用于 Windows 剪贴板：
 
 ```powershell
 powershell.exe -STA -NoProfile -ExecutionPolicy Bypass -File .\docs\examples\shot-to-note.ps1 -Note .\notes
 ```
 
-也可直接识别文件：
+可加 -Shot 指定图片。结果追加到当天 Markdown，没图或没码不写笔记。可将同样的程序及参数填入自定义命令并绑定热键，路径按实际位置修改，不必管理员运行。
+
+## 文件归档
 
 ```powershell
-powershell.exe -STA -NoProfile -ExecutionPolicy Bypass -File .\docs\examples\shot-to-note.ps1 -Shot .\demo-output\code.png -Note .\notes
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\docs\examples\wechat-archive.ps1 -Source .\inbox -Destination .\archive -DryRun
 ```
 
-笔记写入 `notes/yyyy-MM-dd.md`。没有图片或没有识别结果时不写笔记。Windows 版示例不再调用不受支持的 CLI 框选接口。
+先预览，去掉 -DryRun 后默认复制，只有明确 -Move 才移动。按日期和类型分类，同名不同内容追加序号；临时下载文件跳过。脚本名沿用历史名称，来源目录始终由用户指定。
 
-在软件的「执行命令」里，程序填 `powershell.exe`，参数填：
-
-```text
--STA -NoProfile -ExecutionPolicy Bypass -File "D:\Tools\Kscan\docs\examples\shot-to-note.ps1" -Note "D:\Notes"
-```
-
-将路径改为实际位置，再为这个命令绑定自己的热键。不需要管理员权限。
-
-## 3. 按日期和类型归档（Windows）
-
-脚本文件沿用 `wechat-archive.ps1` 名称，但不猜测微信或下载目录。用 `-Source` 明确指定任意文件目录，目标不能放在来源目录里面。
-
-```powershell
-# 只预览，不创建目录、不复制文件
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\docs\examples\wechat-archive.ps1 -Source .\inbox -Destination .\archive -WhatIf
-
-# 默认复制，保留来源
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\docs\examples\wechat-archive.ps1 -Source .\inbox -Destination .\archive
-
-# 明确移动，可先加 -WhatIf 检查
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\docs\examples\wechat-archive.ps1 -Source .\inbox -Destination .\archive -Move
-```
-
-输出结构为 `archive/yyyy-MM/类别/文件名`；`-ByDay` 改为按天。类别使用英文目录名，中文文件名保留。重复文件按 SHA-256 内容判断；同名不同内容自动加数字后缀，不覆盖。`.tmp`、`.part`、`.crdownload` 跳过。移动模式遇到已存在相同内容的目标时保留来源，不擅自删除。
-
-## 4. Linux 示例
-
-需要 Bash 4+ 及 GNU 基础工具；截图需要 Wayland 下的 grim、slurp，解码需要可运行的 Linux `kscan`。不适用于直接调用 Windows 版 exe 做 Linux 截图。
+## Linux
 
 ```bash
 bash docs/examples/shot-to-note.sh -k /path/to/kscan -i code.png -n ./notes
-# 不给 -i 时用 grim + slurp 框选
-bash docs/examples/shot-to-note.sh -k /path/to/kscan -n ./notes
-
 bash docs/examples/wechat-archive.sh -s ./inbox -t ./archive -n
-bash docs/examples/wechat-archive.sh -s ./inbox -t ./archive
-bash docs/examples/wechat-archive.sh -s ./inbox -t ./archive -m
 ```
 
-归档同样默认复制，`-n` 预览，`-m` 明确移动。示例不自动搜索客户端私有目录。
+需要 Bash 和 GNU 工具；不传 -i 时截图依赖 grim/slurp，不能以 Windows exe 代替 Linux 原生截图。归档 -n 预览，默认复制，-m 明确移动。脚本帮助以 -h 或源码参数说明为准。
 
-## 5. 用户主题示例
+## 主题与命名
 
-把 [ocean-theme.json](ocean-theme.json) 复制到当前便携配置的 `data/user/themes/`，然后在设置中选择「海蓝」。界面、独立标注及快速标注工具栏使用同一套主题；更改 JSON 会重新应用。不要把文件当作 `settings.json`。
+将 ocean-theme.json 复制到实际配置的 user/themes 中，再到设置选择；它不是 settings.json。命名 JSON 的示例及程序员解析接口见 [命名规则](../manual/命名规则.md)。
 
-## 文件与执行环境
-
-Windows `.ps1` 使用 UTF-8 BOM，兼容 Windows PowerShell 5.1。Linux `.sh` 使用 UTF-8、LF 换行。源码包附带脚本实现，便携包附带同一份示例，不包含运行时的个人笔记、截图或归档目录。
+Windows ps1 保留 UTF-8 BOM；Linux sh 保留 UTF-8 和 LF。便携包的 docs/examples 与源码示例同源，用户运行产生的文件不纳入分发包。

@@ -1,0 +1,48 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kscan - 命名规则</title><style>body{font:16px/1.8 system-ui,"Microsoft YaHei",sans-serif;color:#20242a;background:#fafafa;margin:0}main{max-width:1000px;margin:auto;padding:28px}a{color:#0869ba}nav{position:sticky;top:0;padding:10px 24px;background:#edf2f7;border-bottom:1px solid #b8c5d0}pre{overflow:auto;padding:16px;background:#e8edf2;border-radius:8px;white-space:pre-wrap}code{font-family:Consolas,monospace}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto}th,td{padding:8px 12px;border:1px solid #b8c5d0;text-align:left}h1,h2,h3{line-height:1.4} @media(prefers-color-scheme:dark){body{color:#eceff4;background:#191d24}a{color:#85c5ff}nav,pre{background:#282f3b}th,td{border-color:#526071}}</style></head><body><nav><a href="index.html">Kscan 使用手册</a></nav><main><h1>文件命名模板与高级规则</h1>
+<p>在设置 → 命名与标注选择类型，编辑模板，观察示例并保存。变量使用英文，说明使用中文。变量按钮插入到光标位置。示例使用样本宽高和计数，不会创建文件或消耗实际序号。</p>
+<p>支持 screenshot、scroll、annotation、pin、barcode、clipboard、video、gif、audio。screenshot 对应普通截图，scroll 对应长图，annotation 对应标注结果；pin 是贴图另存，barcode 是生成结果，clipboard 是保存剪贴板文本。普通截图及标注的复制操作也会为文件项使用这些模板。</p>
+<h2>基础变量</h2>
+<table><tbody>
+<tr><td>变量</td><td>含义</td><td>示例</td></tr>
+<tr><td><code>{type}</code></td><td>当前输出类型</td><td>video</td></tr>
+<tr><td><code>{date:yyyyMMdd}</code></td><td>本地日期，可指定 .NET 日期格式</td><td>20261028</td></tr>
+<tr><td><code>{time:HHmmss}</code></td><td>本地时间，HH 是 24 小时制</td><td>113025</td></tr>
+<tr><td><code>{datetime:yyyy-MM-dd_HH-mm-ss}</code></td><td>日期和时间</td><td>2026-10-28_11-30-25</td></tr>
+<tr><td><code>{counter:000}</code></td><td>当前进程内共享计数，可补零</td><td>007</td></tr>
+<tr><td><code>{width}</code> / <code>{height}</code></td><td>输出画面像素尺寸，未知或音频为 0</td><td>1920 / 1080</td></tr>
+<tr><td><code>{title}</code></td><td>来源名称或可获得的前台窗口标题，可能为空</td><td>Example window</td></tr>
+<tr><td><code>{ext}</code></td><td>扩展名文字，不带点</td><td>mp4</td></tr>
+</tbody></table>
+<p>默认模板：<code>{type}_{date:yyyyMMdd}_{time:HHmmssfff}_{counter:000}</code>。文件扩展名由输出格式自动追加，通常不必在模板中再写 <code>{ext}</code>。格式错误会在预览或保存时提示。</p>
+<p>计数在不同类型间共享，重启程序从头计数；并非按文件夹持久化的业务流水号。已有同名输出或正在编码的同名 .partial 文件会避让，追加 -1、-2 等。保存对话框里的建议名称仍允许用户修改；手动选择覆盖已有文件时按系统对话框处理。</p>
+<h2>处理与条件</h2>
+<pre><code>
+{title|default:untitled|trim|slug|truncate:40}_{date:yyyy-MM-dd}
+{if:type=gif?animation:recording}_{counter:000}
+</code></pre>
+<p>管道按从左到右依次处理。支持 lower、upper、trim、slug、default:文字、truncate:长度。slug 保留字母、数字、下划线、横线，把其他连续符号压成横线；中文属于字母，可以保留。truncate 长度范围为 1–200。</p>
+<p>条件写法为 <code>{if:变量=值?匹配时文字:否则文字}</code>，比较忽略大小写；分支是普通文字，不支持嵌套表达式。<code>{{</code> 和 <code>}}</code> 分别表示文字花括号。单个表达式不能嵌套，模板最长 2048 字符。</p>
+<p>非法文件名字符、目录分隔符和控制字符被替换，下尾句点、空格会去掉；Windows 保留名如 CON 自动加前缀，空名称变为 untitled。输出长度上限 180 字符。模板不能通过目录分隔符把文件写到其他目录。</p>
+<h2>JSON 规则</h2>
+<p>高级区可把当前编辑器内容生成 JSON；复制或粘贴后点击“应用到编辑器”，检查预览，再点保存。这里只放命名对象，不是整个 settings.json：</p>
+<pre><code>
+{
+  &quot;templates&quot;: {
+    &quot;video&quot;: &quot;{type}_{date:yyyyMMdd}_{time:HHmmss}_{counter:000}&quot;,
+    &quot;gif&quot;: &quot;{if:type=gif?animation:recording}_{title|default:untitled|slug}_{counter:000}&quot;
+  },
+  &quot;stampTemplate&quot;: &quot;{date:yyyy-MM-dd} {time:HH:mm:ss}&quot;,
+  &quot;recordStamp&quot;: false,
+  &quot;liveStamp&quot;: true,
+  &quot;stampPosition&quot;: &quot;bottom-right&quot;,
+  &quot;stampSize&quot;: 20,
+  &quot;stampColor&quot;: &quot;#FFFFFFFF&quot;,
+  &quot;stampOpacity&quot;: 0.9
+}
+</code></pre>
+<p>未写入的输出类型使用默认文件模板。保存目录在截图/录制原有设置中选择，不写在模板里。已开始录制的文件名不会随实时水印时钟变化。</p>
+<h2>时间标注与程序员扩展</h2>
+<p>画面文字使用 stampTemplate，保留冒号等普通文本字符，不执行文件名清理。录制可选固定开始时间或实时更新；日期时间按系统本地时间生成。字号 8–96，透明度 0.1–1，位置可选 top-left、top-right、bottom-left、bottom-right，字体跟随主题。颜色可写 #AARRGGBB。</p>
+<p>程序员可以引用 Core 的 <code>NameTemplate.Render(template, context, resolveToken: ...)</code>，注入自定义变量解析器；GUI 的公开 <code>FileNaming.RegisterToken(&quot;custom_project&quot;, context =&gt; &quot;ProjectA&quot;)</code> 可在宿主启动阶段注册扩展变量。扩展名称须以 custom_ 开头。</p>
+<p>这是代码集成接口，当前没有“把 DLL 放目录就自动加载”的插件管理器，也不从用户 JSON 执行 JavaScript、PowerShell、C# 或系统命令。GUI 的普通规则校验只接受内置变量；自行集成的宿主可使用 Core 接口对自定义规则作相同校验。JSON 字段和模板语法可直接供外部工具生成。</p>
+</main></body></html>

@@ -92,7 +92,7 @@ public sealed class RecordingSettingsPanel : UserControl
         advancedPanel.Children.Add(new TextBlock { Text = "视频编码器" });
         var encoders = new[] { "libx264", "h264_nvenc", "h264_qsv", "h264_amf" };
         var encoder = new ComboBox { ItemsSource = encoders, SelectedItem = encoders.Contains(settings.VideoEncoder) ? settings.VideoEncoder : encoders[0] }; advancedPanel.Children.Add(encoder);
-        var extra = Field(advancedPanel, "编码参数（如 -crf 20 -preset fast）", settings.ExtraOutputArguments);
+        var extra = Field(advancedPanel, "编码参数（全类型共用；仅填写当前编码器支持项）", settings.ExtraOutputArguments);
         panel.Children.Add(new Expander { Header = "高级设置", Content = advancedPanel, IsExpanded = false, HorizontalAlignment = HorizontalAlignment.Stretch });
         async Task SaveAsync()
         {

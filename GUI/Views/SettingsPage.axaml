@@ -77,6 +77,7 @@
                     Padding="0,0,12,0"
                     VerticalAlignment="Stretch">
                 <StackPanel Spacing="2">
+                    <RadioButton Classes="nav" GroupName="settingsSection" Content="命名与标注" Command="{Binding SelectSectionCommand}" CommandParameter="naming" IsChecked="{Binding SectionNaming, Mode=OneWay}" />
                     <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.General}" Command="{Binding SelectSectionCommand}" CommandParameter="general" IsChecked="{Binding SectionGeneral, Mode=OneWay}" />
                     <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.Recording}" Command="{Binding SelectSectionCommand}" CommandParameter="recording" IsChecked="{Binding SectionRecording, Mode=OneWay}" />
                     <RadioButton Classes="nav" GroupName="settingsSection" Content="{DynamicResource Str.Settings.Theme}" Command="{Binding SelectSectionCommand}" CommandParameter="appearance" IsChecked="{Binding SectionAppearance, Mode=OneWay}" />
@@ -96,6 +97,7 @@
             <Border Classes="section" IsVisible="{Binding SectionRecording}">
                 <ContentControl x:Name="RecordingSectionHost" />
             </Border>
+            <Border Classes="section" IsVisible="{Binding SectionNaming}"><ContentControl x:Name="NamingSectionHost" /></Border>
 
             <!-- 平台能力 -->
             <Border Classes="section" IsVisible="{Binding SectionGeneral}">
