@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Input.Platform;
 using Avalonia.Media.Imaging;
+using Avalonia.Input;
+using Avalonia.Platform.Storage;
 using Kscan.App.Views;
 
 namespace Kscan.App.Services;
@@ -197,7 +199,7 @@ public sealed class PinManager
     }
 
     /// <summary>
-    /// 优先贴剪贴板图片；没有图片时，若文本是一个图片地址且设置里允许联网，就下载后再贴；
+    /// 优先读取SVG及图片文件项（保留GIF/WebP动画），再读取位图；没有图片时，若文本是一个图片地址且设置里允许联网，就下载后再贴；
     /// 否则把文本按 Markdown 渲染。两者都没有时返回 <c>false</c>。
     /// </summary>
     public async Task<bool> PinFromClipboardAsync()
@@ -207,10 +209,24 @@ public sealed class PinManager
             return false;
         }
 
+        return await PinFromClipboardAsync(clipboard);
+    }
+
+    internal async Task<bool> PinFromClipboardAsync(IClipboard clipboard)
+    {
         if (await SvgPinRenderer.ReadClipboardAsync(clipboard) is { } svg)
         {
             Pin(SvgPinRenderer.Render(svg), "clipboard-svg.png", ownsImage: true);
             return true;
+        }
+
+        // Prefer source files over bitmap previews so GIF/WebP retain their animation.
+        using (var data = await clipboard.TryGetDataAsync())
+        {
+            var files = data is null ? null : await data.TryGetFilesAsync();
+            if (files is not null)
+                foreach (var file in files)
+                    if (file.TryGetLocalPath() is { } path && PinClipboardFile(path)) return true;
         }
 
         var bitmap = await clipboard.TryGetBitmapAsync();
@@ -254,6 +270,33 @@ public sealed class PinManager
         // 这张位图是从剪贴板读出来的、归调用方所有：让贴图窗口在关闭时释放它。
         // 位置：剪贴板里若还是"刚截的那张图"就贴回截图原位，否则（外部图片等）屏幕中央。
         Pin(bitmap, "clipboard.png", ownsImage: true, targetRegion: CaptureMemory.RegionIfCurrent());
+        return true;
+    }
+
+    internal bool PinClipboardFile(string path)
+    {
+        if (!new[] { ".gif", ".webp", ".png", ".jpg", ".jpeg", ".bmp", ".ico", ".tif", ".tiff" }
+            .Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase)) return false;
+        Bitmap bitmap;
+        try
+        {
+            using var stream = File.OpenRead(path);
+            bitmap = new Bitmap(stream);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or InvalidOperationException)
+        {
+            GuiLog.Write($"pin: clipboard image file unreadable {path}: {ex.Message}");
+            return false;
+        }
+        var window = Pin(bitmap, Path.GetFileName(path), ownsImage: true, targetRegion: CaptureMemory.RegionIfCurrent());
+        window.RetainedSourcePath = path;
+        using var animation = AnimatedImage.TryLoad(path, out var reason);
+        if (animation is not null)
+        {
+            var (frames, delays) = animation.TakeFrames();
+            window.ShowAnimation(new AnimatedPinPlayer(frames, delays));
+        }
+        else if (!string.IsNullOrEmpty(reason)) GuiLog.Write($"animated: clipboard {path} first frame only ({reason})");
         return true;
     }
 
