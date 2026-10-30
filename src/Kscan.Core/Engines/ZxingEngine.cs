@@ -46,7 +46,39 @@ public sealed class ZxingEngine : IBarcodeEngine
         };
 
         var stopwatch = Stopwatch.StartNew();
-        var raw = options.MultiCode
+        // Exported, axis-aligned QR images can contain thousands of false finder
+        // candidates. Read their module grid directly before the general detector.
+        var pure = new BarcodeReaderGeneric
+        {
+            Options = new DecodingOptions
+            {
+                PureBarcode = true,
+                TryInverted = options.TryInverted,
+                PossibleFormats = [BarcodeFormat.QR_CODE],
+            },
+        };
+        Result? direct = null;
+        var formats = ToFormats(options.RestrictFormats);
+        if (formats is null || formats.Contains(BarcodeFormat.QR_CODE))
+        {
+            var bitmap = new BinaryBitmap(new HybridBinarizer(source));
+            var bounds = bitmap.BlackMatrix.getEnclosingRectangle();
+            // A complete square symbol only: do not shortcut a multi-symbol image.
+            if (bounds is { Length: 4 } && Math.Abs(bounds[2] - bounds[3]) <= 2)
+            {
+                direct = pure.Decode(source);
+                direct ??= DecodeSquareGrid(bitmap.BlackMatrix, bounds);
+                if (direct is not null)
+                {
+                    direct = new Result(direct.Text, direct.RawBytes,
+                        [new ResultPoint(bounds[0], bounds[1] + bounds[3] - 1),
+                         new ResultPoint(bounds[0], bounds[1]),
+                         new ResultPoint(bounds[0] + bounds[2] - 1, bounds[1])],
+                        direct.BarcodeFormat);
+                }
+            }
+        }
+        var raw = direct is not null ? Single(direct) : options.MultiCode
             ? reader.DecodeMultiple(source)
             : Single(reader.Decode(source));
         stopwatch.Stop();
@@ -87,6 +119,33 @@ public sealed class ZxingEngine : IBarcodeEngine
     }
 
     private static Result[]? Single(Result? result) => result is null ? null : [result];
+
+    private static Result? DecodeSquareGrid(BitMatrix pixels, int[] bounds)
+    {
+        // Screenshots may have been scaled to a non-integer module size. Infer
+        // the version from the seven-module finder edge, then sample cell centres.
+        var edge = 0;
+        while (edge < bounds[2] && pixels[bounds[0] + edge, bounds[1]]) edge++;
+        if (edge < 7 || edge >= bounds[2]) return null;
+        var estimated = bounds[2] * 7.0 / edge;
+        var version = (int)Math.Round((estimated - 17) / 4);
+        for (var offset = -1; offset <= 1; offset++)
+        {
+            var candidate = version + offset;
+            if (candidate is < 1 or > 40) continue;
+            var dimension = 17 + 4 * candidate;
+            var grid = new BitMatrix(dimension);
+            for (var y = 0; y < dimension; y++)
+                for (var x = 0; x < dimension; x++)
+                    grid[x, y] = pixels[
+                        bounds[0] + (int)((x + 0.5) * bounds[2] / dimension),
+                        bounds[1] + (int)((y + 0.5) * bounds[3] / dimension)];
+            var decoded = new ZXing.QrCode.Internal.Decoder().decode(grid, null);
+            if (decoded is not null)
+                return new Result(decoded.Text, decoded.RawBytes, [], BarcodeFormat.QR_CODE);
+        }
+        return null;
+    }
 
     private static List<BarcodeFormat>? ToFormats(IReadOnlyList<string>? names)
     {

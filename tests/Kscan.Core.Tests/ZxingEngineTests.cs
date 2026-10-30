@@ -6,6 +6,34 @@ namespace Kscan.Core.Tests;
 
 public class ZxingEngineTests
 {
+    [Fact]
+    public void Dense_generated_qr_decodes()
+    {
+        var frame = SkiaImageCodec.FromEncoded(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "assets", "qr-dense.png")));
+        var result = Assert.Single(new ZxingEngine().Decode(frame, ScanOptions.Default));
+        Assert.Equal(410, result.Text.Length);
+        Assert.Equal("QR_CODE", result.Format);
+        Assert.True(result.HasLocation);
+    }
+
+    [Theory]
+    [InlineData(400)]
+    [InlineData(4096)]
+    public void Near_capacity_qr_round_trips_at_different_sizes(int size)
+    {
+        var text = string.Concat(Enumerable.Range(0, 2900).Select(i => (char)('a' + i % 26)));
+        var frame = SkiaImageCodec.FromEncoded(BarcodeImageFactory.CreateQrCodePng(text, size, 4, "L"));
+        Assert.Equal(text, Assert.Single(new ZxingEngine().Decode(frame, ScanOptions.Default)).Text);
+    }
+
+    [Fact]
+    public void Long_numeric_qr_round_trips()
+    {
+        var text = string.Concat(Enumerable.Repeat("0123456789", 700));
+        var frame = SkiaImageCodec.FromEncoded(BarcodeImageFactory.CreateQrCodePng(text, 800, 4, "L"));
+        Assert.Equal(text, Assert.Single(new ZxingEngine().Decode(frame, ScanOptions.Default)).Text);
+    }
+
     private static ImageFrame QrFrame(string text) =>
         SkiaImageCodec.FromEncoded(BarcodeImageFactory.CreateQrCodePng(text));
 
