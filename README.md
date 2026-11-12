@@ -1,6 +1,7 @@
 # Kscan
 
 跨平台的二维码 / 条码识别、生成与桌面截图工具。Windows 10/11 功能完整；Linux（Wayland / X11）提供截图、识别、生成、滚动截图和贴图，受桌面协议限制。
+
 <img src="docs/assets/icon.png" width="112" alt="Kscan icon">
 
 ## 🔴 AI生成
