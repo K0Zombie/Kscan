@@ -54,7 +54,7 @@ kscan doctor
 
 ## 平台支持
 
-| 能力 | Windows 10/11 | Linux Wayland / X11 |
+| 能力 | Windows 10/11 | Linux Wayland / X11（有很多问题，目前不打算修，linux上有更好的替代） |
 | --- | --- | --- |
 | 识别 / 生成 / CLI | ✅ | ✅ |
 | 框选截图 | ✅ 原生 | ✅ 通过 `grim` + `slurp` 等外部工具 |
