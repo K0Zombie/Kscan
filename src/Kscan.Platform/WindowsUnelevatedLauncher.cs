@@ -15,6 +15,37 @@ internal static class WindowsUnelevatedLauncher
         return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
     }
 
+    /// <summary>
+    /// 当前桌面是否提供可用于“普通权限启动”的 shell 令牌。
+    /// <para>
+    /// CI / 服务会话里没有 Explorer，或 Explorer 本身已提权时返回 <c>false</c>；
+    /// 测试用它判断“拒绝降权启动”是不是当前环境的预期行为。
+    /// </para>
+    /// </summary>
+    internal static bool CanLaunchUnelevated()
+    {
+        if (!OperatingSystem.IsWindows()) return true;
+
+        try
+        {
+            var shell = GetShellWindow();
+            if (shell == IntPtr.Zero) return false;
+            GetWindowThreadProcessId(shell, out var pid);
+            using var process = OpenProcess(0x1000, false, pid);
+            if (process.IsInvalid) return false;
+            if (!OpenProcessToken(process, 0x000A, out var token)) return false;
+            using (token)
+            {
+                return GetTokenInformation(token, 20, out var elevation, sizeof(int), out _)
+                    && elevation == 0;
+            }
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
     internal static void Start(string command, string? arguments, string directory)
     {
         try

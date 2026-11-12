@@ -218,6 +218,7 @@ public sealed class RecordingTests
     [InlineData(2, true)]
     public async Task Real_ffmpeg_encodes_synthetic_video_gif_audio_and_muxed_audio(int kindValue, bool audio)
     {
+        if (!HasFfmpeg()) Assert.Skip("ffmpeg/ffprobe not installed");
         var kind = (RecordingKind)kindValue;
         var directory = Path.Combine(Path.GetTempPath(), "kscan-encode-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
@@ -252,5 +253,29 @@ public sealed class RecordingTests
             Assert.Equal(audio && kind != RecordingKind.Gif, streams.Any(s => s.GetProperty("codec_type").GetString() == "audio"));
         }
         finally { Directory.Delete(directory, true); }
+    }
+
+    private static bool HasFfmpeg()
+    {
+        return HasCommand("ffmpeg") && HasCommand("ffprobe");
+    }
+
+    private static bool HasCommand(string name)
+    {
+        try
+        {
+            using var process = Process.Start(new ProcessStartInfo(name, "-version")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            });
+            return process is not null && process.WaitForExit(5000) && process.ExitCode == 0;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 }

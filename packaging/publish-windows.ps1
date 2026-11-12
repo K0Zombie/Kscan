@@ -1,4 +1,4 @@
-param([string]$Destination)
+﻿param([string]$Destination)
 $ErrorActionPreference = 'Stop'
 $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if (-not $Destination) { $Destination = Join-Path $projectRoot 'artifacts' }
@@ -19,7 +19,7 @@ Copy-Item -LiteralPath (Join-Path $projectRoot 'GUI/Assets/portable-defaults.jso
 # ---- 用户手册 + 示例脚本（给用户看的那份，一起打包）----
 $docsOut = Join-Path $output 'docs'
 New-Item -ItemType Directory -Path $docsOut -Force | Out-Null
-Copy-Item -LiteralPath (Join-Path $projectRoot 'docs/USAGE.md') -Destination (Join-Path $docsOut '使用手册.md') -Force
+Copy-Item -LiteralPath (Join-Path $projectRoot 'docs/使用说明.md') -Destination (Join-Path $docsOut '使用手册.md') -Force
 # 手册里引用了 DESIGN.md（架构 / 设计），一起带上，链接才不会断
 Copy-Item -LiteralPath (Join-Path $projectRoot 'docs/DESIGN.md') -Destination (Join-Path $docsOut 'DESIGN.md') -Force
 $examplesOut = Join-Path $docsOut '示例脚本'
@@ -54,7 +54,10 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = Join-Path $Destination "$name.zip"
 if (Test-Path -LiteralPath $zip) { throw "Archive already exists: $zip" }
 [IO.Compression.ZipFile]::CreateFromDirectory($output, $zip, [IO.Compression.CompressionLevel]::Optimal, $true)
-$hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+$sha = [Security.Cryptography.SHA256]::Create()
+$stream = [IO.File]::OpenRead($zip)
+try { $hash = ([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-', '').ToLowerInvariant() }
+finally { $stream.Dispose(); $sha.Dispose() }
 [IO.File]::WriteAllText("$zip.sha256", "$hash  $name.zip`n")
 Get-Item -LiteralPath $zip | Select-Object FullName, Length
 Write-Output "SHA256 $hash"

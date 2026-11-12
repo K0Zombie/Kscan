@@ -1,4 +1,5 @@
 using Kscan.Core.Configuration;
+using Kscan.Platform;
 
 namespace Kscan.Platform.Tests;
 
@@ -13,14 +14,22 @@ public sealed class CommandLauncherTests
             "$principal=[Security.Principal.WindowsPrincipal]::new($identity);" +
             "[IO.File]::WriteAllText('" + output.Replace("'", "''") + "'," +
             "$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator).ToString())";
+        var binding = new HotkeyBinding(HotkeyActionIds.RunCommand, "F8")
+        {
+            Command = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe"),
+            Arguments = "-NoProfile -NonInteractive -EncodedCommand " + Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(script)),
+            RunAsAdmin = false,
+        };
+        if (IsElevatedDesktop)
+        {
+            // GitHub Actions 的 Windows runner 本身是管理员：产品会明确拒绝“降权启动”，
+            // 这是预期行为，不能再要求子进程拿到普通用户令牌。
+            AssertNormalLaunchRejectedWhenElevated(binding);
+            return;
+        }
         try
         {
-            CommandLauncher.Start(new HotkeyBinding(HotkeyActionIds.RunCommand, "F8")
-            {
-                Command = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe"),
-                Arguments = "-NoProfile -NonInteractive -EncodedCommand " + Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(script)),
-                RunAsAdmin = false,
-            });
+            CommandLauncher.Start(binding);
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
             while (!File.Exists(output) || new FileInfo(output).Length == 0) await Task.Delay(50, timeout.Token);
             Assert.Equal("False", await File.ReadAllTextAsync(output));
@@ -44,6 +53,11 @@ public sealed class CommandLauncherTests
                     : "-c \"pwd > 'command output.txt'\"",
                 WorkingDirectory = directory,
             };
+            if (IsElevatedDesktop)
+            {
+                AssertNormalLaunchRejectedWhenElevated(binding);
+                return;
+            }
             CommandLauncher.Start(binding);
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             while (!File.Exists(output) || new FileInfo(output).Length == 0)
@@ -60,6 +74,12 @@ public sealed class CommandLauncherTests
     public void Missing_program_reports_failure()
     {
         var binding = new HotkeyBinding(HotkeyActionIds.RunCommand, "F8") { Command = "kscan-missing-" + Guid.NewGuid().ToString("N") };
+        if (IsElevatedDesktop)
+        {
+            // 提权环境下先被“无法降权启动”拦下，轮不到 Win32Exception。
+            AssertNormalLaunchRejectedWhenElevated(binding);
+            return;
+        }
         Assert.Throws<System.ComponentModel.Win32Exception>(() => CommandLauncher.Start(binding));
     }
 
@@ -86,5 +106,14 @@ public sealed class CommandLauncherTests
 
         var error = Assert.Throws<InvalidOperationException>(() => CommandLauncher.Start(binding));
         Assert.Contains("管理员", error.Message);
+    }
+
+    private static bool IsElevatedDesktop =>
+        OperatingSystem.IsWindows() && !WindowsUnelevatedLauncher.CanLaunchUnelevated();
+
+    private static void AssertNormalLaunchRejectedWhenElevated(HotkeyBinding binding)
+    {
+        var error = Assert.Throws<InvalidOperationException>(() => CommandLauncher.Start(binding));
+        Assert.Contains("普通用户权限", error.Message);
     }
 }

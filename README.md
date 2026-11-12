@@ -96,10 +96,13 @@ packaging/          Windows / Linux 发布与 Arch 打包
 scripts/            帮助与图标生成脚本
 ```
 
+更细的文件说明、关键函数和扩展路线见 [`docs/CODE-MAP.md`](docs/CODE-MAP.md)。
+
 ## 文档
 
 - [用户手册](docs/manual/index.md)（[离线 HTML](docs/manual/index.html)）
 - [设计文档](docs/DESIGN.md)
+- [代码地图：文件结构与关键函数](docs/CODE-MAP.md)（开分支/扩展前先看）
 - [示例与集成](docs/examples/README.md)
 - [版本与支持范围](docs/manual/版本说明.md)
 
