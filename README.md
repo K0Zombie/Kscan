@@ -1,8 +1,11 @@
 # Kscan
 
 跨平台的二维码 / 条码识别、生成与桌面截图工具。Windows 10/11 功能完整；Linux（Wayland / X11）提供截图、识别、生成、滚动截图和贴图，受桌面协议限制。
-
 <img src="docs/assets/icon.png" width="112" alt="Kscan icon">
+
+## 🔴 AI生成
+
+内容由deepseek-flashV4.1与codex协作完成
 
 ## 功能
 
@@ -13,9 +16,21 @@
 - **贴图**：把截图、图片、GIF / 动画 WebP、Markdown 钉在屏幕上；缩放、旋转、分组、鼠标穿透。
 - **录制（Windows）**：GIF、MP4、M4A，系统声音 / 麦克风 / 混合音源，FFmpeg 由用户自行安装。
 - **自动化**：全局热键、鼠标手势、自定义命令、CLI、单实例 IPC 和文件命名模板。
-
+- **快捷键**：绝大部分功能都需要快捷键打开，根据自己的需要设置快捷键符合自己的操作习惯
 所有识别与图像处理都在本地完成，不上传图片，不包含遥测。剪贴板监听、自动打开链接、远程图片贴图等敏感能力默认关闭。
 
+## 实用
+- **录制gif**：可以随时随地录制动图，制作朋友的表情包，游戏里面的破绷时刻
+
+- **贴图管理**：可以持久化需要反复使用的贴图，可以是一周的课表，可以是一些喜欢的图片/动图
+
+<img width="775" height="343" alt="gif_20261112_104517774_003" src="https://github.com/user-attachments/assets/bc72e69a-958a-42c3-8255-b4ec51b313b9" />
+
+
+- **多屏截图**：跨屏框选功能，按照Windows的布局拼接
+
+<img width="4480" height="1445" alt="screenshot_20261112_105008656_007" src="https://github.com/user-attachments/assets/2b56ad0e-e375-4e9d-8345-02c010fc50d9" />
+ 
 ## 快速开始
 
 ### 使用发布包
