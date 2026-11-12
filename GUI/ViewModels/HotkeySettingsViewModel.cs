@@ -149,6 +149,7 @@ public sealed partial class HotkeySettingsViewModel : ObservableObject
 
         AppSettingsService.Current.Changed += (_, _) => SyncFromSettings();
         I18n.Current.Changed += (_, _) => RefreshLocalizedText();
+        GlobalHotkeyService.Current.RegistrationChanged += (_, _) => OnPropertyChanged(nameof(ActiveText));
     }
 
     /// <summary>动作下拉的候选，含自定义命令。</summary>
@@ -176,17 +177,11 @@ public sealed partial class HotkeySettingsViewModel : ObservableObject
         {
             var service = GlobalHotkeyService.Current;
 
-            if (service.Active.Count == 0 && service.Failures.Count == 0)
+            var lines = new List<string>
             {
-                return I18n.T("Str.Settings.HotkeyInactive");
-            }
-
-            if (service.Failures.Count == 0)
-            {
-                return I18n.F("Str.Settings.HotkeyAllActive", service.Active.Count);
-            }
-
-            var lines = new List<string>(service.Failures.Count);
+                I18n.F("Str.Settings.RegistrationSummary", service.Active.Count, service.RegisteredKeys.Count, service.Failures.Count),
+                string.Join(" · ", service.RegisteredKeys),
+            };
 
             foreach (var failure in service.Failures)
             {

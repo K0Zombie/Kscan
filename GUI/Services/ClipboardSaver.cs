@@ -24,7 +24,7 @@ internal static class ClipboardSaver
         Directory.CreateDirectory(folder);
 
         // 图片优先：「截图后保存」是最常见的用法。注意位图归本方法所有，用完要释放。
-        var bitmap = await clipboard.TryGetBitmapAsync();
+        var bitmap = await ClipboardImageReader.ReadAsync(clipboard);
         if (bitmap is not null)
         {
             using (bitmap)

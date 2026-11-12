@@ -3,7 +3,7 @@
 # 需要：base-devel、dotnet-sdk（构建期）、能访问 nuget.org
 
 pkgname=kscan
-pkgver=0.1.16
+pkgver=0.1.17
 pkgrel=1
 pkgdesc="跨平台二维码/条码扫描与生成工具（命令行：识别 / 生成 / 等宽字符画 / 管道）"
 arch=('x86_64' 'aarch64')

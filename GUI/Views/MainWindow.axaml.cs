@@ -10,14 +10,21 @@ namespace Kscan.App.Views;
 
 public partial class MainWindow : Window
 {
-    private bool _gestureStarted;
+    private (bool Enabled, string Modifiers, string Button)? _gestureConfiguration;
 
     public MainWindow()
     {
         InitializeComponent();
+        WindowMaterial.Attach(this);
 
         Opened += (_, _) => StartMouseGesture();
-        Closed += (_, _) => PlatformServices.MouseGesture.Stop();
+        AppSettingsService.Current.Changed += OnGestureSettingsChanged;
+        Closed += (_, _) =>
+        {
+            AppSettingsService.Current.Changed -= OnGestureSettingsChanged;
+            PlatformServices.MouseGesture.Triggered -= OnGestureTriggered;
+            PlatformServices.MouseGesture.Stop();
+        };
 
         // 语言切换后要重新测量一次：TabItem 的 Header 是字符串，换字典后它的宽度不会自动重算，
         // 英文标题（Settings）会被按中文宽度（设置）裁掉一截。
@@ -35,22 +42,42 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 挂上全局鼠标手势（Windows 上就是"按住 Win 拖一下左键"）。
+    /// 仅按用户设置启用全局鼠标手势，默认不挂钩。
     /// 钩子必须在 UI 线程安装，且回调里绝不能做耗时的事 —— 否则会卡住全局鼠标输入。
     /// </summary>
     internal void StartMouseGesture()
     {
         var gesture = PlatformServices.MouseGesture;
-        if (!gesture.IsSupported || _gestureStarted)
+        var settings = AppSettingsService.Current.Settings;
+        var configuration = (settings.MouseGestureEnabled, settings.MouseGestureModifiers, settings.MouseGestureButton);
+        if (!gesture.IsSupported || _gestureConfiguration == configuration)
         {
             return;
         }
 
+        _gestureConfiguration = configuration;
+        gesture.Stop();
+        gesture.Triggered -= OnGestureTriggered;
+        if (!settings.MouseGestureEnabled) return;
+        var modifiers = GlobalHotkeyService.ParseForceModifiers(settings.MouseGestureModifiers);
+        if (modifiers == HotkeyModifiers.None) return;
+        var options = new MouseGestureOptions
+        {
+            RequireWinKey = modifiers.HasFlag(HotkeyModifiers.Win),
+            RequireCtrl = modifiers.HasFlag(HotkeyModifiers.Control),
+            RequireAlt = modifiers.HasFlag(HotkeyModifiers.Alt),
+            RequireShift = modifiers.HasFlag(HotkeyModifiers.Shift),
+            Button = settings.MouseGestureButton switch
+            {
+                "Right" => MouseGestureButton.Right,
+                "Middle" => MouseGestureButton.Middle,
+                _ => MouseGestureButton.Left,
+            },
+        };
         gesture.Triggered += OnGestureTriggered;
 
-        if (gesture.Start(MouseGestureOptions.Default))
+        if (gesture.Start(options))
         {
-            _gestureStarted = true;
             Log($"mouse gesture enabled: {gesture.CurrentGesture}");
         }
         else
@@ -59,6 +86,8 @@ public partial class MainWindow : Window
             Log("mouse gesture hook failed (SetWindowsHookEx returned 0)");
         }
     }
+
+    private void OnGestureSettingsChanged(object? sender, EventArgs e) => StartMouseGesture();
 
     /// <summary>
     /// GUI 没有控制台，诊断信息交给 <see cref="GuiLog"/>（写到 %APPDATA%\kscan\gui.log）。
@@ -74,6 +103,7 @@ public partial class MainWindow : Window
         // 钩子回调里只投递任务，真正的截图识别放到 UI 线程的消息循环里做
         Dispatcher.UIThread.Post(() =>
         {
+            if (!AppSettingsService.Current.Settings.MouseGestureEnabled) return;
             if (DataContext is not MainViewModel model)
             {
                 Log("gesture triggered but DataContext is not MainViewModel");

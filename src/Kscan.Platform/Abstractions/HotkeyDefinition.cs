@@ -36,6 +36,12 @@ public sealed record HotkeyDefinition(HotkeyModifiers Modifiers, string Key)
         "Space", "Enter", "Tab", "Esc", "Backspace", "Delete",
         "Insert", "Home", "End", "PageUp", "PageDown",
         "Left", "Right", "Up", "Down",
+        "NumPad0", "NumPad1", "NumPad2", "NumPad3", "NumPad4", "NumPad5", "NumPad6", "NumPad7", "NumPad8", "NumPad9",
+        "Multiply", "Add", "Subtract", "Decimal", "Divide", "CapsLock", "NumLock", "Scroll", "Pause", "PrintScreen",
+        "OemSemicolon", "OemPlus", "OemComma", "OemMinus", "OemPeriod", "OemQuestion", "OemTilde",
+        "OemOpenBrackets", "OemPipe", "OemCloseBrackets", "OemQuotes", "OemBackslash",
+        "VolumeMute", "VolumeDown", "VolumeUp", "MediaNextTrack", "MediaPreviousTrack", "MediaStop", "MediaPlayPause",
+        "BrowserBack", "BrowserForward", "BrowserRefresh", "BrowserStop", "BrowserSearch", "BrowserFavorites", "BrowserHome",
     ];
 
     /// <summary>

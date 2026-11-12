@@ -1964,6 +1964,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>配置在别处被改（例如手工编辑配置文件）时同步回界面。</summary>
     private void RefreshFromSettings()
     {
+        OnPropertyChanged(nameof(WindowMaterialIndex));
+        OnPropertyChanged(nameof(MouseGestureEnabled));
+        OnPropertyChanged(nameof(MouseGestureModifiers));
+        OnPropertyChanged(nameof(MouseGestureButton));
         var settings = AppSettingsService.Current.Settings;
         _initialized = false;
         AutoCopySingleResult = settings.AutoCopySingleResult;
@@ -2008,6 +2012,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>语言切换后刷新所有"算好的"文案。</summary>
     private void RefreshLocalizedText()
     {
+        OnPropertyChanged(nameof(WindowMaterials));
+        OnPropertyChanged(nameof(WindowMaterialIndex));
         if (_statusKey is not null)
         {
             Status = I18n.F(_statusKey, _statusArgs);

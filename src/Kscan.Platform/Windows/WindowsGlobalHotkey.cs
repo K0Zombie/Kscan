@@ -55,6 +55,7 @@ internal sealed class WindowsGlobalHotkey : IGlobalHotkey
     public string? DescriptionKey => "Platform.Hotkey.Windows";
 
     public IReadOnlyList<GlobalHotkeyBinding> Registered => _registered;
+    public IReadOnlyList<string> RegisteredKeys { get; private set; } = [];
 
     public event EventHandler<GlobalHotkeyPressedEventArgs>? Pressed;
 
@@ -63,6 +64,7 @@ internal sealed class WindowsGlobalHotkey : IGlobalHotkey
         ArgumentNullException.ThrowIfNull(hotkeys);
 
         StopThread();
+        RegisteredKeys = [];
 
         var failures = new List<GlobalHotkeyFailure>();
         var plan = new List<(int Id, GlobalHotkeyBinding Binding)>();
@@ -120,6 +122,7 @@ internal sealed class WindowsGlobalHotkey : IGlobalHotkey
         StopThread();
 
         _registered = [];
+        RegisteredKeys = [];
         _idToRoute = new Dictionary<int, (string ActionId, bool Forced)>();
     }
 
@@ -153,6 +156,7 @@ internal sealed class WindowsGlobalHotkey : IGlobalHotkey
         var registeredIds = new List<int>();
         var idToRoute = new Dictionary<int, (string ActionId, bool Forced)>();
         var registered = new List<GlobalHotkeyBinding>();
+        var keys = new List<string>();
 
         // 强制变体用独立的 id 段，避免和主键 id 撞车
         var nextForcedId = plan.Count + 1;
@@ -178,12 +182,18 @@ internal sealed class WindowsGlobalHotkey : IGlobalHotkey
             registeredIds.Add(id);
             idToRoute[id] = (binding.ActionId, false);
             registered.Add(binding);
+            keys.Add(binding.Hotkey.ToString());
 
-            RegisterForcedVariant(binding, virtualKey, idToRoute, registeredIds, ref nextForcedId);
         }
+
+        // Explicit user bindings take priority over automatically derived force combinations.
+        foreach (var binding in registered)
+            RegisterForcedVariant(binding, VirtualKeyFor(binding.Hotkey.Key)!.Value,
+                idToRoute, registeredIds, keys, results, ref nextForcedId);
 
         _idToRoute = idToRoute;
         _registered = registered;
+        RegisteredKeys = keys;
 
         ready.TrySetResult(results);
 
@@ -216,28 +226,20 @@ internal sealed class WindowsGlobalHotkey : IGlobalHotkey
     }
 
     /// <summary>
-    /// 注册"原组合 + 强制修饰键"的变体。注册失败（被占用等）静默忽略：主键仍然有效，
-    /// 只是排除应用里没法用强制修饰键触发 —— 不值得为此整条热键报错。
+    /// 注册强制触发组合；失败也返回诊断，主组合仍然有效。
     /// </summary>
     private static void RegisterForcedVariant(
         GlobalHotkeyBinding binding,
         uint virtualKey,
         Dictionary<int, (string ActionId, bool Forced)> idToRoute,
         List<int> registeredIds,
+        List<string> keys,
+        List<GlobalHotkeyFailure> failures,
         ref int nextForcedId)
     {
-        if (binding.ForceModifiers == HotkeyModifiers.None)
-        {
-            return;
-        }
-
-        var forcedModifiers = binding.Hotkey.Modifiers | binding.ForceModifiers;
-
-        // 热键本身已经带了全部强制修饰键（例如 Ctrl+Alt+F5）—— 变体和主键一样，不用再注册
-        if (forcedModifiers == binding.Hotkey.Modifiers)
-        {
-            return;
-        }
+        var variant = ForcedVariant(binding, keys);
+        if (variant is null) return;
+        var forcedModifiers = variant.Modifiers;
 
         var forcedId = nextForcedId++;
 
@@ -245,7 +247,25 @@ internal sealed class WindowsGlobalHotkey : IGlobalHotkey
         {
             registeredIds.Add(forcedId);
             idToRoute[forcedId] = (binding.ActionId, true);
+            keys.Add(new HotkeyDefinition(forcedModifiers, binding.Hotkey.Key).ToString());
         }
+        else
+        {
+            var code = Marshal.GetLastWin32Error();
+            failures.Add(new GlobalHotkeyFailure(binding.ActionId,
+                new HotkeyDefinition(forcedModifiers, binding.Hotkey.Key).ToString(),
+                $"强制触发组合注册失败（Win32 {code}）；主组合仍有效。占用来源未知。"));
+        }
+    }
+
+    internal static HotkeyDefinition? ForcedVariant(GlobalHotkeyBinding binding, IReadOnlyCollection<string> registeredKeys)
+    {
+        var modifiers = binding.Hotkey.Modifiers | binding.ForceModifiers;
+        if (modifiers == binding.Hotkey.Modifiers) return null;
+        var variant = new HotkeyDefinition(modifiers, binding.Hotkey.Key);
+        // An explicit binding or an earlier derived combination already owns this
+        // key in our process. Do not try to register it again or report an OS conflict.
+        return registeredKeys.Contains(variant.ToString()) ? null : variant;
     }
 
     private static uint ToWinModifiers(HotkeyModifiers modifiers)
@@ -294,6 +314,17 @@ internal sealed class WindowsGlobalHotkey : IGlobalHotkey
 
         return key switch
         {
+            "NumPad0" => 0x60, "NumPad1" => 0x61, "NumPad2" => 0x62, "NumPad3" => 0x63, "NumPad4" => 0x64,
+            "NumPad5" => 0x65, "NumPad6" => 0x66, "NumPad7" => 0x67, "NumPad8" => 0x68, "NumPad9" => 0x69,
+            "Multiply" => 0x6A, "Add" => 0x6B, "Subtract" => 0x6D, "Decimal" => 0x6E, "Divide" => 0x6F,
+            "CapsLock" => 0x14, "NumLock" => 0x90, "Scroll" => 0x91, "Pause" => 0x13, "PrintScreen" => 0x2C,
+            "OemSemicolon" => 0xBA, "OemPlus" => 0xBB, "OemComma" => 0xBC, "OemMinus" => 0xBD,
+            "OemPeriod" => 0xBE, "OemQuestion" => 0xBF, "OemTilde" => 0xC0, "OemOpenBrackets" => 0xDB,
+            "OemPipe" => 0xDC, "OemCloseBrackets" => 0xDD, "OemQuotes" => 0xDE, "OemBackslash" => 0xE2,
+            "VolumeMute" => 0xAD, "VolumeDown" => 0xAE, "VolumeUp" => 0xAF,
+            "MediaNextTrack" => 0xB0, "MediaPreviousTrack" => 0xB1, "MediaStop" => 0xB2, "MediaPlayPause" => 0xB3,
+            "BrowserBack" => 0xA6, "BrowserForward" => 0xA7, "BrowserRefresh" => 0xA8, "BrowserStop" => 0xA9,
+            "BrowserSearch" => 0xAA, "BrowserFavorites" => 0xAB, "BrowserHome" => 0xAC,
             "Space" => 0x20,
             "Enter" => 0x0D,
             "Tab" => 0x09,

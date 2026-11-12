@@ -1,9 +1,39 @@
+# Build output
 **/bin/
 **/obj/
+artifacts/
+publish/
+TestResults/
+BenchmarkDotNet.Artifacts/
+
+# IDE / tooling
 .vs/
 .idea/
+.vscode/
 *.user
 *.suo
-TestResults/
-data/
+*.userprefs
+*.swp
+*.swo
+
+# Logs / temporary files
 *.log
+*.tmp
+*.bak
+*.orig
+*.rej
+*.trx
+coverage*.xml
+coverage*.json
+.tmp/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Packages / local data
+*.nupkg
+*.snupkg
+data/
+recordings/

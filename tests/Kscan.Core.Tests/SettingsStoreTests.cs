@@ -126,15 +126,18 @@ public class SettingsStoreTests : IDisposable
 
         var loaded = new JsonSettingsStore(FilePath).Load();
 
-        Assert.Equal(
-            [
-                new HotkeyBinding(HotkeyActionIds.CaptureRegion, "Ctrl+Alt+F1"),
-                new HotkeyBinding(HotkeyActionIds.PinClipboard, "F4"),   // 空串的那条不迁移
-                new HotkeyBinding(HotkeyActionIds.PickExcludedApp, AppSettings.DefaultExcludeAppHotkey),
-                new HotkeyBinding(HotkeyActionIds.CloseAllPins, AppSettings.DefaultCloseAllPinsHotkey),
-                new HotkeyBinding(HotkeyActionIds.CaptureRegionAndPin, AppSettings.DefaultCaptureAndPinHotkey),
-            ],
-            loaded.Hotkeys.ToArray());
+        // 旧标量字段只迁移非空的两条；空串的 ScanClipboard 不生成绑定。
+        Assert.Contains(loaded.Hotkeys, item =>
+            item.ActionId == HotkeyActionIds.CaptureRegion && item.Keys == "Ctrl+Alt+F1");
+        Assert.Contains(loaded.Hotkeys, item =>
+            item.ActionId == HotkeyActionIds.PinClipboard && item.Keys == "F4");
+        Assert.DoesNotContain(loaded.Hotkeys, item => item.ActionId == HotkeyActionIds.ScanClipboard);
+
+        // 版本迁移还会按版本补齐后续新增动作；这里只钉住与旧字段迁移相关的行为，
+        // 不把默认热键全集写死，避免以后加动作时测试反复失效。
+        Assert.Contains(loaded.Hotkeys, item => item.ActionId == HotkeyActionIds.PickExcludedApp);
+        Assert.Contains(loaded.Hotkeys, item => item.ActionId == HotkeyActionIds.CloseAllPins);
+        Assert.Contains(loaded.Hotkeys, item => item.ActionId == HotkeyActionIds.CaptureRegionAndPin);
 
         Assert.Equal(AppSettings.CurrentVersion, loaded.Version);
 
@@ -158,11 +161,10 @@ public class SettingsStoreTests : IDisposable
 
         var loaded = new JsonSettingsStore(FilePath).Load();
 
-        // 「框选排除应用」不该被加回来（版本已是 2）；但之后新增的「关闭所有贴图」和「截取并贴图」会各补一次
-        Assert.Equal(3, loaded.Hotkeys.Count);
+        // 「框选排除应用」不该被加回来（版本已是 2）；之后新增的动作会按迁移顺序补齐。
         Assert.Equal(HotkeyActionIds.CaptureRegion, loaded.Hotkeys[0].ActionId);
-        Assert.Equal(HotkeyActionIds.CloseAllPins, loaded.Hotkeys[1].ActionId);
-        Assert.Equal(HotkeyActionIds.CaptureRegionAndPin, loaded.Hotkeys[2].ActionId);
+        Assert.Contains(loaded.Hotkeys, item => item.ActionId == HotkeyActionIds.CloseAllPins);
+        Assert.Contains(loaded.Hotkeys, item => item.ActionId == HotkeyActionIds.CaptureRegionAndPin);
         Assert.DoesNotContain(loaded.Hotkeys, item => item.ActionId == HotkeyActionIds.PickExcludedApp);
     }
 
@@ -184,6 +186,30 @@ public class SettingsStoreTests : IDisposable
         Assert.Equal("taskmgr.exe", loaded.IgnoredApps[0]);
         Assert.Equal("Ctrl+Shift", loaded.ForceHotkeyModifiers);
         Assert.Equal(original, loaded);
+    }
+
+    [Fact]
+    public void Naming_templates_compare_by_content_not_dictionary_reference()
+    {
+        // AppSettingsService 用值相等判断是否需要写盘；Templates 是字典，
+        // 如果退回引用相等，读回同内容的配置会被误判为“变了”。
+        var first = new NamingSettings
+        {
+            Templates = new(StringComparer.OrdinalIgnoreCase) { ["image"] = "{date}" },
+        };
+        var second = new NamingSettings
+        {
+            Templates = new(StringComparer.OrdinalIgnoreCase) { ["IMAGE"] = "{date}" },
+        };
+
+        Assert.Equal(first, second);
+        Assert.Equal(first.GetHashCode(), second.GetHashCode());
+
+        second = second with
+        {
+            Templates = new(StringComparer.OrdinalIgnoreCase) { ["image"] = "{time}" },
+        };
+        Assert.NotEqual(first, second);
     }
 
     [Fact]

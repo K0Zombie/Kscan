@@ -20,13 +20,13 @@
 
 .PARAMETER Sync
     After packaging, copy the app files into this folder, e.g.
-    D:\Tools\kscan-0.1.8-win-x64-portable . The target's data\ folder is kept.
+    C:\Tools\kscan-win-x64-portable . The target's data\ folder is kept.
 
 .EXAMPLE
     powershell -NoProfile -ExecutionPolicy Bypass -File Kscan\packaging\build.ps1
 
 .EXAMPLE
-    powershell -NoProfile -ExecutionPolicy Bypass -File Kscan\packaging\build.ps1 -Sync D:\Tools\kscan-0.1.8-win-x64-portable
+    powershell -NoProfile -ExecutionPolicy Bypass -File Kscan\packaging\build.ps1 -Sync C:\Tools\kscan-win-x64-portable
 #>
 [CmdletBinding()]
 param(

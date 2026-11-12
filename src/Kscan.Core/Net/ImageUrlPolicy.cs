@@ -95,6 +95,12 @@ public static class ImageUrlPolicy
             return true;   // 普通域名
         }
 
+        // IPv4-mapped IPv6（::ffff:192.168.1.1）按 IPv4 规则判断，否则会绕过上面的私网检查。
+        if (address.IsIPv4MappedToIPv6)
+        {
+            address = address.MapToIPv4();
+        }
+
         if (IPAddress.IsLoopback(address) || address.IsIPv6LinkLocal || address.IsIPv6SiteLocal)
         {
             return false;

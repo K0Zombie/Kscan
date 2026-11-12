@@ -65,10 +65,10 @@ internal static class RemoteImageFetcher
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(Timeout);
 
-            using var response = await Client.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
-            if (!response.IsSuccessStatusCode)
+            using var response = await GetWithRedirectsAsync(uri, timeout.Token);
+            if (response is null || !response.IsSuccessStatusCode)
             {
-                GuiLog.Write($"remote-image: http {(int)response.StatusCode} {uri.Host}");
+                GuiLog.Write($"remote-image: http {(response is null ? 0 : (int)response.StatusCode)} {uri.Host}");
                 return null;
             }
 
@@ -119,6 +119,54 @@ internal static class RemoteImageFetcher
     private static bool IsImageResponse(HttpResponseMessage response, Uri uri) =>
         ImageUrlPolicy.IsImageContentType(response.Content.Headers.ContentType?.MediaType, uri);
 
+    /// <summary>
+    /// 手动跟随重定向，每一跳都重新做公网校验。
+    /// <para>
+    /// <see cref="HttpClientHandler.AllowAutoRedirect"/> 只检查初始地址：公网图片地址可以
+    /// 302 到 <c>127.0.0.1</c> 或内网服务，绕过 <see cref="ImageUrlPolicy.IsPublicHttpUrl"/>。
+    /// 这里关掉自动跳转，逐跳判断，杜绝这条 SSRF 路径。
+    /// </para>
+    /// </summary>
+    private static async Task<HttpResponseMessage?> GetWithRedirectsAsync(Uri uri, CancellationToken cancellationToken)
+    {
+        var current = uri;
+
+        for (var redirect = 0; redirect <= MaxRedirects; redirect++)
+        {
+            var response = await Client.GetAsync(current, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            if (!IsRedirect(response.StatusCode))
+            {
+                return response;
+            }
+
+            var location = response.Headers.Location;
+            response.Dispose();
+
+            if (location is null)
+            {
+                GuiLog.Write("remote-image: redirect without location");
+                return null;
+            }
+
+            current = location.IsAbsoluteUri ? location : new Uri(current, location);
+            if (!IsAllowed(current))
+            {
+                GuiLog.Write($"remote-image: blocked redirect {current.Host}");
+                return null;
+            }
+        }
+
+        GuiLog.Write("remote-image: too many redirects");
+        return null;
+    }
+
+    private static bool IsRedirect(HttpStatusCode status) =>
+        status is HttpStatusCode.MovedPermanently
+            or HttpStatusCode.Found
+            or HttpStatusCode.SeeOther
+            or HttpStatusCode.TemporaryRedirect
+            or HttpStatusCode.PermanentRedirect;
+
     private static async Task<byte[]?> ReadLimitedAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -158,16 +206,17 @@ internal static class RemoteImageFetcher
     {
         var handler = new HttpClientHandler
         {
-            AllowAutoRedirect = true,
-            MaxAutomaticRedirections = MaxRedirects,
+            // 重定向由 GetWithRedirectsAsync 逐跳校验，不能交给 HttpClient 自动跟随。
+            AllowAutoRedirect = false,
             AutomaticDecompression = DecompressionMethods.All,
         };
 
+        var version = typeof(RemoteImageFetcher).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
         var client = new HttpClient(handler)
         {
             Timeout = Timeout,
             // 有些图床对默认 UA 直接 403
-            DefaultRequestHeaders = { { "User-Agent", "kscan/0.1.10" } },
+            DefaultRequestHeaders = { { "User-Agent", $"kscan/{version}" } },
         };
 
         return client;

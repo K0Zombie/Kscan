@@ -52,7 +52,7 @@ foreach ($file in Get-ChildItem -LiteralPath $manual -Filter '*.md' -File) {
         if ($line.Trim()) { [void]$body.AppendLine('<p>' + (Inline $line) + '</p>') }
     }
     if ($list) { [void]$body.AppendLine("</$list>") }; if ($table) { [void]$body.AppendLine('</tbody></table>') }
-    $title = [Net.WebUtility]::HtmlEncode($file.BaseName)
+    $title = if ($file.BaseName -eq 'index') { '使用手册' } else { [Net.WebUtility]::HtmlEncode($file.BaseName) }
     $html = '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kscan - ' + $title + '</title><style>' + $css + '</style></head><body><nav><a href="index.html">Kscan 使用手册</a></nav><main>' + $body.ToString() + '</main></body></html>'
     [IO.File]::WriteAllText((Join-Path $manual ($file.BaseName + '.html')), $html, [Text.UTF8Encoding]::new($false))
 }

@@ -5,7 +5,7 @@ namespace Kscan.App.Services;
 /// <summary>全部用物理像素判断原位编辑是否放得下，跨屏和大图自然回退独立编辑。</summary>
 internal sealed record QuickAnnotationLayout(PixelRect Monitor, PixelRect WorkArea, PixelRect Image, PixelRect Toolbar, double Scaling)
 {
-    public const double MaxImageFraction = .85;
+    public const double MaxImageFraction = .80;
     public const int ToolbarWidthDip = 720;
     public const int ToolbarHeightDip = 112;
 

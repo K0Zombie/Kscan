@@ -598,7 +598,7 @@ public sealed partial class ScanViewModel : ObservableObject
 
         try
         {
-            using var image = await clipboard.TryGetBitmapAsync();
+            using var image = await ClipboardImageReader.ReadAsync(clipboard);
             if (image is null)
             {
                 return;
@@ -798,7 +798,7 @@ public sealed partial class ScanViewModel : ObservableObject
 
         try
         {
-            using var image = await clipboard.TryGetBitmapAsync();
+            using var image = await ClipboardImageReader.ReadAsync(clipboard);
 
             if (image is null)
             {

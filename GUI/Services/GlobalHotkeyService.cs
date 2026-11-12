@@ -45,6 +45,8 @@ public sealed class GlobalHotkeyService
     /// <summary>某个动作的热键被按下（已投递到 UI 线程）。</summary>
     public event EventHandler<GlobalHotkeyPressedEventArgs>? Triggered;
     public event Action<HotkeyBinding>? CommandTriggered;
+    public event EventHandler? RegistrationChanged;
+    public IReadOnlyList<string> RegisteredKeys => _hotkey.RegisteredKeys;
 
     public bool IsSupported => _hotkey.IsSupported;
 
@@ -109,13 +111,21 @@ public sealed class GlobalHotkeyService
 
         // 平台层的失败原因（被占用之类）和解析错误并进同一张表；
         // 平台层只知道 routeId，这里映射回配置里的真实动作 id，界面才显示得对。
-        failures.AddRange(_hotkey.Apply(wanted).Select(failure =>
-            routes.TryGetValue(failure.ActionId, out var route)
-                ? failure with { ActionId = route.Binding.ActionId }
-                : failure));
+        foreach (var failure in _hotkey.Apply(wanted))
+        {
+            var other = wanted.FirstOrDefault(x => x.ActionId != failure.ActionId &&
+                (x.Hotkey.ToString() == failure.Keys || (x.ForceModifiers != HotkeyModifiers.None &&
+                new HotkeyDefinition(x.Hotkey.Modifiers | x.ForceModifiers, x.Hotkey.Key).ToString() == failure.Keys)));
+            var reason = other is not null && routes.TryGetValue(other.ActionId, out var owner)
+                ? I18n.F("Str.Settings.HotkeyDuplicateRegistration", I18n.T(ViewModels.HotkeyActionOption.LabelKeyFor(owner.Binding.ActionId)), failure.Keys)
+                : failure.Reason;
+            failures.Add(routes.TryGetValue(failure.ActionId, out var route)
+                ? failure with { ActionId = route.Binding.ActionId, Reason = reason } : failure);
+        }
 
         _routes = routes;
         Failures = failures;
+        RegistrationChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>取消全部注册（不碰配置）。</summary>
@@ -248,7 +258,7 @@ public sealed class GlobalHotkeyService
         return excluded;
     }
 
-    private static HotkeyModifiers ParseForceModifiers(string? text)
+    internal static HotkeyModifiers ParseForceModifiers(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
         {

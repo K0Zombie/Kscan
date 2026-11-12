@@ -24,6 +24,12 @@ internal sealed class SingleInstanceChannel : ISingleInstanceChannel
 
     private const int ConnectTimeoutMs = 300;
 
+    /// <summary>
+    /// 管道允许的并发实例数。监听端一次只处理一个连接，但“探测是否已有实例”本身
+    /// 也会连一次；只开 1 个实例时，探测连接会把紧随其后的真正命令挡在门外。
+    /// </summary>
+    private const int MaxPipeInstances = 4;
+
     private readonly string _name;
 
     private CancellationTokenSource? _cts;
@@ -51,18 +57,27 @@ internal sealed class SingleInstanceChannel : ISingleInstanceChannel
 
         if (_cts is not null) return false;
 
-        // 锁文件只是"尽力而为"的互斥：拿不到就降级继续，**绝不因此让进程起不来**。
-        // 以前只捕 IOException，而路径只读 / 被安全软件拦住 / 权限不足抛的是
-        // UnauthorizedAccessException —— 它会一路冒到 Main，表现为"双击没反应"（进程秒崩）。
+        // 锁文件是首选的互斥证据：能打开 = 没有实例；被 FileShare.None 拒绝 = 已有实例。
+        // 只有权限不足（目录只读 / 被安全软件拦住）时才退回探测旧实例的路径；
+        // 这类异常以前会一路冒到 Main，表现为“双击没反应”（进程秒崩）。
         // 锁文件不删除：删掉锁文件会让两个进程锁住不同 inode。
+        var runtimeDirectory = RuntimeDirectory();
         try
         {
-            _ownership = new FileStream(Path.Combine(RuntimeDirectory(), _name + ".lock"),
+            _ownership = new FileStream(Path.Combine(runtimeDirectory, _name + ".lock"),
                 FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (IOException)
         {
-            _ownership = null;   // 降级：靠下面的"探测已有实例 + 独占管道"继续保证单实例
+            // 文件被另一个实例以 FileShare.None 持有 —— 这就是"已有实例"的最强证据。
+            // 不要再去探测管道：探测会消耗掉对方唯一的连接槽位，紧接着转发的命令就会失败。
+            _ownership = null;
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // 锁文件所在目录不可写/被安全软件拦住：不能靠锁判断，退回探测旧实例的路径。
+            _ownership = null;
         }
 
         // 兼容尚未使用锁文件的旧版实例；锁没拿到但探测到有人，也算已有实例。
@@ -98,7 +113,7 @@ internal sealed class SingleInstanceChannel : ISingleInstanceChannel
         {
             try
             {
-                _pipeServer = new NamedPipeServerStream(_name, PipeDirection.In, 1,
+                _pipeServer = new NamedPipeServerStream(_name, PipeDirection.In, MaxPipeInstances,
                     PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
             }
             catch
@@ -121,33 +136,45 @@ internal sealed class SingleInstanceChannel : ISingleInstanceChannel
 
     public async Task<bool> SendAsync(string command, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var payload = Encoding.UTF8.GetBytes(command.ReplaceLineEndings(" ") + "\n");
-            if (payload.Length > MaxCommandBytes) return false;
+        var payload = Encoding.UTF8.GetBytes(command.ReplaceLineEndings(" ") + "\n");
+        if (payload.Length > MaxCommandBytes) return false;
 
-            if (OperatingSystem.IsWindows())
-            {
-                await using var client = new NamedPipeClientStream(".", _name, PipeDirection.Out);
-                await client.ConnectAsync(ConnectTimeoutMs, cancellationToken).ConfigureAwait(false);
-                await client.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
-                await client.FlushAsync(cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                using var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
-                await socket.ConnectAsync(new UnixDomainSocketEndPoint(Endpoint), cancellationToken).ConfigureAwait(false);
-                await using var stream = new NetworkStream(socket, ownsSocket: false);
-                await stream.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
-            }
-
-            return true;
-        }
-        catch (Exception)
+        // 监听端在“探测是否有实例”和“真正的命令”之间会短暂地只有一个连接槽位可用；
+        // 首次连接失败时给一次很短的退避，避免把正常的转发误判成“没有实例”。
+        for (var attempt = 0; attempt < 3; attempt++)
         {
-            // 没有实例、对面刚退出、权限问题…… 一律当作"没送到"，由调用方决定怎么提示
-            return false;
+            try
+            {
+                if (OperatingSystem.IsWindows())
+                {
+                    await using var client = new NamedPipeClientStream(".", _name, PipeDirection.Out);
+                    await client.ConnectAsync(ConnectTimeoutMs, cancellationToken).ConfigureAwait(false);
+                    await client.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
+                    await client.FlushAsync(cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    using var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+                    await socket.ConnectAsync(new UnixDomainSocketEndPoint(Endpoint), cancellationToken).ConfigureAwait(false);
+                    await using var stream = new NetworkStream(socket, ownsSocket: false);
+                    await stream.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
+                }
+
+                return true;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                // 没有实例、对面刚退出、权限问题…… 前两次稍等重试，最后一次交给调用方处理
+                if (attempt == 2) return false;
+                await Task.Delay(75, cancellationToken).ConfigureAwait(false);
+            }
         }
+
+        return false;
     }
 
     public void Release()

@@ -105,6 +105,15 @@ internal sealed class AnnotationCanvas : Control, IDisposable
         Focus();
     }
 
+    public void FitImageBounds()
+    {
+        _fit = false;
+        _actual = false;
+        Viewport.FitImageBounds(Bounds.Size);
+        Redraw();
+        Focus();
+    }
+
     public void AlignTop()
     {
         Viewport.Pan(new Vector(0, 24 - Viewport.Offset.Y));

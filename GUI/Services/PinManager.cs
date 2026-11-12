@@ -229,7 +229,7 @@ public sealed class PinManager
                     if (file.TryGetLocalPath() is { } path && PinClipboardFile(path)) return true;
         }
 
-        var bitmap = await clipboard.TryGetBitmapAsync();
+        var bitmap = await ClipboardImageReader.ReadAsync(clipboard);
         if (bitmap is null)
         {
             var text = await clipboard.TryGetTextAsync();

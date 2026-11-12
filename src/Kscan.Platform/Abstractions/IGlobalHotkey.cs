@@ -59,6 +59,7 @@ public interface IGlobalHotkey
 
     /// <summary>当前<b>真正注册成功</b>的条目（顺序同传入顺序；同一动作可能出现多次）。</summary>
     IReadOnlyList<GlobalHotkeyBinding> Registered { get; }
+    IReadOnlyList<string> RegisteredKeys => Registered.Select(x => x.Hotkey.ToString()).ToArray();
 
     /// <summary>
     /// 用一批热键整体替换当前注册（先全部注销）。返回**注册失败的条目与可读原因**；

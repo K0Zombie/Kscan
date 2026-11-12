@@ -20,6 +20,11 @@ public sealed record AppSettings
     public string? Language { get; init; }
 
     public bool StartSilently { get; init; }
+    public bool MicaEnabled { get; init; }
+    public string? WindowMaterial { get; init; }
+    public bool MouseGestureEnabled { get; init; }
+    public string MouseGestureModifiers { get; init; } = "Win";
+    public string MouseGestureButton { get; init; } = "Left";
     public bool MinimizeToTray { get; init; }
     public bool CloseToTray { get; init; } = true;
 

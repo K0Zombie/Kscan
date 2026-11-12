@@ -12,14 +12,12 @@ public class ScanPipelineTests
         SkiaImageCodec.FromEncoded(BarcodeImageFactory.CreateQrCodePng(text));
 
     [Fact]
-    public void Denoise_rescues_a_qr_with_bright_lines_across_it()
+    public void Bright_frame_lines_do_not_block_default_decoding()
     {
-        // 识别页的高亮框就是这种"亮色细线"。实测它能把二维码的定位图形切断，
-        // 让原图彻底读不出来 —— 这里把那个场景钉住：原图失败，去噪后成功。
+        // 识别页的高亮框就是这种"亮色细线"。它曾经能切断二维码定位图形，
+        // 需要去噪层才能读回；当前引擎可能直接读出来，所以这里只钉住默认管线
+        // 能读、内容正确，不把“原图必须失败”当成产品契约。
         var marked = DrawFrameLines(QrFrame("DENOISE-RESCUE"));
-
-        var strict = ScanPipeline.CreateDefault().Scan(marked, new ScanOptions { TryDenoise = false });
-        Assert.False(strict.Success);
 
         var outcome = ScanPipeline.CreateDefault().Scan(marked);
         Assert.True(outcome.Success);

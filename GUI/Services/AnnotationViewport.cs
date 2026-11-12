@@ -28,6 +28,11 @@ internal sealed class AnnotationViewport(int imageWidth, int imageHeight)
         if (actual) Offset = new Point(Math.Round(Offset.X * deviceScale) / deviceScale, Math.Round(Offset.Y * deviceScale) / deviceScale);
     }
     public void Pan(Vector delta) => Offset += delta;
+    public void FitImageBounds(Size size)
+    {
+        Scale = Math.Max(.001, Math.Min(size.Width / imageWidth, size.Height / imageHeight));
+        Offset = new Point((size.Width - imageWidth * Scale) / 2, (size.Height - imageHeight * Scale) / 2);
+    }
     public void Zoom(Point anchor, double factor)
     {
         var p = ToImage(anchor);

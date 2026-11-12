@@ -9,7 +9,7 @@
       全解决方案统一的版本号：`kscan version`、pacman 包的 pkgver、.desktop 里的版本都对着它。
       发版时只改这一处（packaging/arch/PKGBUILD 的 pkgver 也要一起改）。
     -->
-    <Version>0.1.16</Version>
+    <Version>0.1.17</Version>
   </PropertyGroup>
 
   <!--

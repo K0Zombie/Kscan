@@ -108,6 +108,7 @@ internal sealed class AnnotationWindow : Window
         }
         LoadDefaults();
         Content = BuildLayout();
+        if (_quickLayout is null) WindowMaterial.Attach(this);
         Theme(_status, TextBlock.ForegroundProperty, "KscanMutedBrush");
         Theme(_stats, TextBlock.ForegroundProperty, "KscanMutedBrush");
         Theme(_propertyTitle, TextBlock.ForegroundProperty, "KscanForegroundBrush");
@@ -173,11 +174,11 @@ internal sealed class AnnotationWindow : Window
         return window.Result;
     }
 
-    /// <summary>仅截图并标注调用；扫码、截图贴图和剪贴板编辑均不经过此路由。</summary>
+    /// <summary>截图或贴图在原位编辑；空间不足时使用独立编辑器。</summary>
     public static Task<AnnotationResult?> EditCaptureAsync(RegionSelection selection)
     {
         QuickAnnotationLayout? layout = null;
-        if (selection.ScreenRect is { } region && region.Width == selection.Frame.Width && region.Height == selection.Frame.Height)
+        if (selection.ScreenRect is { } region)
         {
             var screens = TopLevelAccessor.GetScreens();
             if (screens is not null)
@@ -697,7 +698,7 @@ internal sealed class AnnotationWindow : Window
             Width = layout.Monitor.Width / layout.Scaling;
             Height = layout.Monitor.Height / layout.Scaling;
             Position = layout.Monitor.Position;
-            Dispatcher.UIThread.Post(() => { _canvas.Fit(true); _canvas.Focus(); }, DispatcherPriority.Loaded);
+            Dispatcher.UIThread.Post(() => { _canvas.FitImageBounds(); _canvas.Focus(); }, DispatcherPriority.Loaded);
             return;
         }
         var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;

@@ -186,12 +186,13 @@
                         </StackPanel>
                     </Grid>
 
-                    <Grid ColumnDefinitions="Auto,*">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
                         <ComboBox Grid.Column="0"
                                   MinWidth="90"
                                   VerticalAlignment="Top"
                                   ItemsSource="{Binding AnimatedFreezeKeyOptions}"
                                   SelectedItem="{Binding AnimatedFreezeKey}" />
+                        <Button Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Top" Content="{DynamicResource Str.Settings.HotkeyCapture}" Command="{Binding RecordHeldModifierCommand}" CommandParameter="freeze" />
                         <StackPanel Grid.Column="1" Margin="10,2,0,0" Spacing="2">
                             <TextBlock Text="{DynamicResource Str.Settings.AnimatedFreezeKey}" />
                             <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.AnimatedFreezeKeyNote}" TextWrapping="Wrap" />
@@ -338,6 +339,14 @@
             <Border Classes="section" IsVisible="{Binding SectionHotkey}">
                 <StackPanel Spacing="10">
                     <TextBlock Classes="sectionTitle" Text="{DynamicResource Str.Settings.Hotkey}" />
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.InputRecordingNote}" TextWrapping="Wrap" />
+                    <ToggleSwitch IsChecked="{Binding MouseGestureEnabled}" Content="{DynamicResource Str.Settings.MouseGesture}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding MouseGestureEnabled}">
+                        <TextBlock Text="{Binding MouseGestureModifiers}" VerticalAlignment="Center" />
+                        <Button Content="{DynamicResource Str.Settings.HotkeyCapture}" Command="{Binding RecordMouseGestureCommand}" />
+                        <ComboBox ItemsSource="{Binding MouseGestureButtons}" SelectedItem="{Binding MouseGestureButton}" />
+                    </StackPanel>
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.MouseGestureNote}" TextWrapping="Wrap" />
 
                     <!-- 一行 = 一条「动作 + 键」绑定；可增可删，同一个动作可以绑多个键 -->
                     <ItemsControl ItemsSource="{Binding Hotkey.Rows}" IsEnabled="{Binding Hotkey.IsSupported}">
@@ -408,7 +417,7 @@
                                 IsEnabled="{Binding Hotkey.IsSupported}" />
                     </StackPanel>
 
-                    <TextBlock Classes="hint" Text="{Binding Hotkey.ActiveText}" />
+                    <TextBlock Classes="hint" Text="{Binding Hotkey.ActiveText}" TextWrapping="Wrap" />
                     <TextBlock Classes="hint"
                                Text="{Binding Hotkey.Status}"
                                IsVisible="{Binding Hotkey.Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -439,6 +448,7 @@
                     <TextBox Text="{Binding CommandArguments}" PlaceholderText="{DynamicResource Str.Settings.CommandArguments}" />
                     <TextBox Text="{Binding CommandDirectory}" PlaceholderText="{DynamicResource Str.Settings.CommandDirectory}" />
                     <TextBox Text="{Binding CommandHotkey}" PlaceholderText="{DynamicResource Str.Settings.CommandHotkey}" />
+                    <Button Content="{DynamicResource Str.Settings.HotkeyCapture}" Command="{Binding RecordCommandHotkeyCommand}" />
 
                     <CheckBox IsChecked="{Binding CommandRunAsAdmin}"
                               Content="{DynamicResource Str.Settings.CommandRunAsAdmin}" />
@@ -633,12 +643,13 @@
                     </Grid>
                     <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.ElementLevelKeyNote}" />
 
-                    <Grid ColumnDefinitions="Auto,*">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
                         <TextBlock Grid.Column="0" Classes="key" VerticalAlignment="Center"
                                    Text="{DynamicResource Str.Settings.ElementIgnoreModifier}" />
                         <ComboBox Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Left" MinWidth="140"
                                   ItemsSource="{Binding MaskModifierOptions}"
                                   SelectedItem="{Binding ElementIgnoreModifier}" />
+                        <Button Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Top" Content="{DynamicResource Str.Settings.HotkeyCapture}" Command="{Binding RecordHeldModifierCommand}" CommandParameter="element" />
                     </Grid>
                     <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.ElementIgnoreNote}" />
 
@@ -708,12 +719,13 @@
                         </StackPanel>
                     </Grid>
 
-                    <Grid ColumnDefinitions="Auto,*" IsEnabled="{Binding CursorMarkerEnabled}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" IsEnabled="{Binding CursorMarkerEnabled}">
                         <TextBlock Grid.Column="0" Classes="key" VerticalAlignment="Center"
                                    Text="{DynamicResource Str.Settings.CaptureCursorKey}" />
                         <ComboBox Grid.Column="1" Margin="8,0,0,0" HorizontalAlignment="Left" MinWidth="140"
                                   ItemsSource="{Binding CaptureCursorKeyOptions}"
                                   SelectedItem="{Binding CaptureCursorKey}" />
+                        <Button Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Top" Content="{DynamicResource Str.Settings.HotkeyCapture}" Command="{Binding RecordHeldModifierCommand}" CommandParameter="cursor" />
                     </Grid>
                     <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.CursorMarkerKeyNote}" />
 
@@ -736,6 +748,9 @@
             <Border Classes="section" IsVisible="{Binding SectionAppearance}">
                 <StackPanel Spacing="10">
                     <TextBlock Classes="sectionTitle" Text="{DynamicResource Str.Settings.Theme}" />
+                    <TextBlock Text="{DynamicResource Str.Settings.WindowMaterial}" />
+                    <ComboBox ItemsSource="{Binding WindowMaterials}" SelectedIndex="{Binding WindowMaterialIndex}" MinWidth="180" />
+                    <TextBlock Classes="hint" Text="{DynamicResource Str.Settings.MicaNote}" TextWrapping="Wrap" />
 
                     <!-- 主题预览：颜色改动会立即反映在这张卡片上 -->
                     <Border Background="{DynamicResource KscanBackgroundBrush}"

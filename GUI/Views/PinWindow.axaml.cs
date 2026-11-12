@@ -130,7 +130,7 @@ public partial class PinWindow : Window
 
     private bool _anchorValid;
 
-    /// <summary>是否正在用「Alt + 拖动」自由旋转。</summary>
+    /// <summary>是否正在用「Ctrl + 拖动」自由旋转。</summary>
     private bool _rotating;
 
     /// <summary>拖动中的目标角度（松手才烘焙成像素，拖动期间只做几何变换）。</summary>
@@ -410,9 +410,16 @@ public partial class PinWindow : Window
 
         // 与 RegionSelector 同一套做法：Avalonia 12 用 WindowDecorations（枚举与属性同名，需完全限定）
         WindowDecorations = Avalonia.Controls.WindowDecorations.None;
+        TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
+        TransparencyBackgroundFallback = Brushes.Transparent;
         Topmost = true;
         ShowInTaskbar = false;
-        CanResize = false;
+        CanResize = true;
+        Resized += (_, e) =>
+        {
+            if (e.Reason is WindowResizeReason.User or WindowResizeReason.Unspecified)
+                AdoptExternalSize(e.ClientSize);
+        };
         if (OperatingSystem.IsWindows()) Win32Properties.AddWndProcHookCallback(this, OnNativeSizing);
 
         // 窗口自己得是可聚焦的，键盘焦点才落得下来 —— 否则 ESC 收不到
@@ -513,10 +520,7 @@ public partial class PinWindow : Window
         Picture.Source = image;
         Picture.RenderTransform = null;
 
-        // 窗口**不透明**：缩放时窗口尺寸先变、Avalonia 的内容重绘随后才到，
-        // 透明背景会让那一瞬间直接透出桌面（看起来就是画面里闪）。
-        // 取图片左上角的颜色当底色，即使真闪一下也几乎看不出来。
-        Background = new SolidColorBrush(SampleCornerColor(image));
+        ApplyBackground();
 
         BuildMenu();
     }
@@ -1055,8 +1059,8 @@ public partial class PinWindow : Window
             return;   // 右键留给 ContextMenu
         }
 
-        // 按住 Alt = 自由旋转（相对几何中心）。左键拖动仍然是"挪窗口"。
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Alt))
+        // 按住 Ctrl = 自由旋转（相对几何中心）。左键拖动仍然是"挪窗口"。
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
             if (_player is not null)
             {
@@ -1279,7 +1283,7 @@ public partial class PinWindow : Window
         Picture.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
 
         // 平时：显示的是"已烘焙成当前朝向"的位图（窗口尺寸 = 位图尺寸），所以图控件铺满窗口。
-        // Alt 拖动预览期：Picture 换回了原图、只用 RenderTransform 转，图控件必须保持原图尺寸。
+        // Ctrl 拖动预览期：Picture 换回了原图、只用 RenderTransform 转，图控件必须保持原图尺寸。
         var (pictureWidth, pictureHeight) = _rotating ? NaturalSize() : (_width, _height);
 
         Picture.Width = pictureWidth;
@@ -1309,7 +1313,7 @@ public partial class PinWindow : Window
 
     private void OnPointerMoved(object? sender, PointerEventArgs e)
     {
-        // Alt 拖动中：只更新几何变换（零像素开销），松手才烘焙
+        // Ctrl 拖动中：只更新几何变换（零像素开销），松手才烘焙
         if (_rotating)
         {
             var angle = CursorAngle(_anchorX, _anchorY);
@@ -1438,33 +1442,6 @@ public partial class PinWindow : Window
         Zoom(_pendingAnchor, factor);
     }
 
-    /// <summary>取图片左上角像素当窗口底色（拿不到就用黑）。</summary>
-    private static Color SampleCornerColor(Bitmap image)
-    {
-        try
-        {
-            var buffer = Marshal.AllocHGlobal(4);
-
-            try
-            {
-                image.CopyPixels(new PixelRect(0, 0, 1, 1), buffer, 4, 4);
-                return Color.FromArgb(
-                    Marshal.ReadByte(buffer, 3),
-                    Marshal.ReadByte(buffer, 2),
-                    Marshal.ReadByte(buffer, 1),
-                    Marshal.ReadByte(buffer, 0));
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(buffer);
-            }
-        }
-        catch (Exception)
-        {
-            return Avalonia.Media.Colors.Black;
-        }
-    }
-
     /// <summary>以 <paramref name="anchor"/>（窗口内的逻辑坐标）为不动点缩放。</summary>
     private void Zoom(Point anchor, double factor)
     {
@@ -1546,6 +1523,21 @@ public partial class PinWindow : Window
         }
 
         LogTaskbarCoverage();
+    }
+
+    internal void AdoptExternalSize(Size size)
+    {
+        if (_image is null || _width <= 0 || _height <= 0 || _rotating
+            || size.Width <= 0 || size.Height <= 0
+            || (Math.Abs(size.Width - _width) < .5 && Math.Abs(size.Height - _height) < .5)) return;
+        var (naturalWidth, naturalHeight) = DisplaySize(_rotation);
+        var factor = Math.Min(size.Width / naturalWidth, size.Height / naturalHeight);
+        _zoom *= factor;
+        _zoomRef = Math.Max(_zoomRef, _zoom);
+        (_width, _height) = FrameDipSize(_rotation);
+        ApplySize();
+        AnchorFromWindow();
+        RaiseStateChanged();
     }
 
     private IntPtr OnNativeSizing(IntPtr handle, uint message, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -1634,8 +1626,7 @@ public partial class PinWindow : Window
 
         _previewRotation = _rotation;
 
-        // 直角（0/90/180/270）时图片铺满窗口，可以保留不透明底色（避免缩放时闪）；
-        // 任意角度会有透明边，必须让窗口透明，否则透明处会透出底色。
+        // 旋转、缩放和透明度变化后也始终不增加实色底层。
         ApplyBackground();
 
         ApplySize(keepAnchor);
@@ -1643,26 +1634,8 @@ public partial class PinWindow : Window
         RaiseStateChanged();   // 旋转/镜像/重置方向都会走到这里 → 会话防抖落盘
     }
 
-    /// <summary>
-    /// 决定窗口底色。
-    /// <para>
-    /// 只有"直角且完全不透明"时用取色自图片角落的实色当底（缩放/重排的瞬间不至于闪出桌面）；
-    /// <b>其它情况一律透明</b>：半透明（Ctrl+滚轮调过透明度）或任意旋转角度下，
-    /// 实色底会变成一层盖在桌面上的彩色遮罩 —— 就是用户报的"旋转后有时有其它颜色罩住"。
-    /// </para>
-    /// </summary>
-    private void ApplyBackground()
-    {
-        if (Picture.Source is not Bitmap displayed)
-        {
-            Background = Brushes.Transparent;
-            return;
-        }
-
-        Background = ImageTransform.IsRightAngle(_rotation) && Opacity >= 0.999
-            ? new SolidColorBrush(SampleCornerColor(displayed))
-            : Brushes.Transparent;
-    }
+    // Always transparent: a sampled opaque backing can reappear after focus or resize.
+    private void ApplyBackground() => Background = Brushes.Transparent;
 
     /// <summary>把 Avalonia 位图转成与 UI 无关的帧（走 PNG，保证 alpha 正确）。</summary>
     private static ImageFrame ToFrame(Bitmap bitmap)
@@ -1675,7 +1648,7 @@ public partial class PinWindow : Window
 
     /// <summary>
     /// 原图的 <see cref="ImageFrame"/> 缓存。转向要反复重算，每次都走一趟 PNG 编解码的话
-    /// 大图会明显卡（尤其是 Alt 拖动、每 33ms 一次）。
+    /// 大图会明显卡（尤其是 Ctrl 拖动、每 33ms 一次）。
     /// </summary>
     private ImageFrame GetSourceFrame(Bitmap source) => _sourceFrame ??= ToFrame(source);
 
@@ -1892,6 +1865,7 @@ public partial class PinWindow : Window
             return Task.CompletedTask;
         }));
         menu.Items.Add(Item("Str.Pin.Scan", ScanAsync));
+        menu.Items.Add(Item("Str.Pin.Annotate", AnnotateAsync));
         menu.Items.Add(new Separator());
         menu.Items.Add(Item("Str.Pin.RotateLeft", () =>
         {
@@ -2035,6 +2009,41 @@ public partial class PinWindow : Window
     /// 当前显示的那张位图（= 屏幕上看到的朝向）。缩略图、复制、另存为都用它。
     /// </summary>
     public Bitmap? DisplayedBitmap => Picture.Source as Bitmap;
+
+    private bool _annotating;
+
+    internal async Task AnnotateAsync()
+    {
+        if (_annotating || DisplayedBitmap is not { } image) return;
+        _annotating = true;
+        try
+        {
+            // Snapshot the visible orientation/current animation frame before hiding.
+            var frame = ToFrame(image);
+            var region = GetScreenRect();
+            Hide();
+            var completed = await AnnotationWindow.EditCaptureAsync(new RegionSelection(frame, region));
+            if (_isClosed || completed is not { } result) return;
+            // Keep the source and library entry intact; the annotated image is a new pin.
+            Show();
+            PinManager.Current.Pin(ResultActions.ToBitmap(result.Frame), "annotation.png", ownsImage: true, targetRegion: region);
+            await ClipboardWriter.CopyAsync(result.Frame, "annotation");
+            if (result.Recognize && Application.Current?.ApplicationLifetime
+                is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                && desktop.MainWindow?.DataContext is ViewModels.MainViewModel main)
+            {
+                await main.Scan.LoadAsync(result.Frame, "Str.Scan.SourceAnnotation", autoCopy: false);
+                desktop.MainWindow.Show();
+                desktop.MainWindow.Activate();
+            }
+        }
+        catch (Exception ex) { GuiLog.Write($"pin: annotation failed {ex}"); }
+        finally
+        {
+            _annotating = false;
+            if (!_isClosed && !IsVisible) Show();
+        }
+    }
 
     /// <summary>识别这张贴图里的码，结果送给主窗口的识别页（对贴图做二次识别）。</summary>
     private async Task ScanAsync()

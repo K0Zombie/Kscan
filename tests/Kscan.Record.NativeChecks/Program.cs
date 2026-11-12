@@ -26,6 +26,51 @@ sealed class NativeCheckApp : Application
     {
         base.OnFrameworkInitializationCompleted();
         var desktop = (IClassicDesktopStyleApplicationLifetime)ApplicationLifetime!;
+        if (Environment.GetCommandLineArgs().Contains("--material-smoke"))
+        {
+            I18n.Current.Apply("zh-CN");
+            ThemeService.Current.Apply(ThemeDefinition.Light);
+            var settingsVm = new Kscan.App.ViewModels.SettingsViewModel { ActiveSection = "appearance" };
+            var shell = new Window { Width = 1000, Height = 740, Title = "Kscan material smoke", ShowActivated = false,
+                Position = new PixelPoint(80, 80), Topmost = true,
+                Icon = new WindowIcon(Avalonia.Platform.AssetLoader.Open(new Uri("avares://kscan-gui/Assets/kscan.ico"))),
+                ShowInTaskbar = false, Content = new SettingsPage { DataContext = settingsVm } };
+            WindowMaterial.Attach(shell);
+            shell.Show();
+            var materials = new Queue<string>(["Mica", "Acrylic", "None", "Mica", "Acrylic", "None"]);
+            var materialStep = 0;
+            var themeName = "light";
+            string? requested = null;
+            var materialTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            materialTimer.Tick += async (_, _) =>
+            {
+                materialTimer.Stop();
+                try
+                {
+                    if (requested is not null)
+                    {
+                        Console.WriteLine($"MATERIAL requested={requested} actual={shell.ActualTransparencyLevel} background={shell.Background}");
+                        var expectedSurface = WindowMaterial.SurfaceColor(Color.Parse(ThemeService.Current.CurrentTheme.Colors.Background), shell.ActualTransparencyLevel);
+                        if (((ISolidColorBrush)shell.Background!).Color != expectedSurface)
+                            throw new InvalidOperationException("Material tint does not follow the current theme.");
+                        var scale = shell.RenderScaling;
+                        if (await PlatformServices.ScreenCapture.CaptureDesktopAsync(new Kscan.Platform.Abstractions.ScreenRect(
+                            shell.Position.X, shell.Position.Y, (int)(shell.Width * scale), (int)(shell.Height * scale))) is { } screenshot)
+                            File.WriteAllBytes(Path.Combine(AppContext.BaseDirectory, $"material-{themeName}-{requested}.png"), Kscan.Core.Imaging.SkiaImageCodec.EncodePng(screenshot));
+                    }
+                    if (materials.Count == 0) { shell.Close(); desktop.Shutdown(0); return; }
+                    requested = materials.Dequeue();
+                    themeName = materialStep++ < 3 ? "light" : "dark";
+                    var theme = themeName == "light" ? ThemeDefinition.Light : ThemeDefinition.Dark;
+                    ThemeService.Current.Apply(theme);
+                    shell.Foreground = new SolidColorBrush(Color.Parse(theme.Colors.Foreground));
+                    await AppSettingsService.Current.UpdateAsync(s => s with { WindowMaterial = requested });
+                    materialTimer.Start();
+                }
+                catch (Exception ex) { Console.WriteLine(ex); shell.Close(); desktop.Shutdown(1); }
+            };
+            materialTimer.Start(); return;
+        }
         if (Environment.GetCommandLineArgs().Contains("--naming-smoke"))
         {
             var shell = new Window { Content = new ScrollViewer { Content = new NamingSettingsPanel() }, Width = 1050, Height = 800,

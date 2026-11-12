@@ -45,7 +45,7 @@ internal sealed class HotkeyCaptureWindow : Window
     private readonly Func<string, string?>? _describeConflict;
     private readonly TextBlock _warning;
 
-    private HotkeyCaptureWindow(string? current, bool modifierOnly, Func<string, string?>? describeConflict)
+    internal HotkeyCaptureWindow(string? current, bool modifierOnly, Func<string, string?>? describeConflict)
     {
         _modifierOnly = modifierOnly;
         _describeConflict = describeConflict;
@@ -222,7 +222,7 @@ internal sealed class HotkeyCaptureWindow : Window
 
         if (ToKeyName(e.Key) is not { } name)
         {
-            // 认不出的键（F13+、多媒体键等）：忽略，继续等
+            _hint.Text = I18n.F("Str.Settings.KeyUnsupported", e.Key);
             e.Handled = true;
             return;
         }
@@ -299,7 +299,7 @@ internal sealed class HotkeyCaptureWindow : Window
 
     private void Confirm()
     {
-        if (!_captured || _pendingKey is null)
+        if (!_captured || (!_modifierOnly && _pendingKey is null))
         {
             return;
         }
@@ -387,11 +387,6 @@ internal sealed class HotkeyCaptureWindow : Window
         if (key is >= Key.D0 and <= Key.D9)
         {
             return ((int)(key - Key.D0)).ToString();
-        }
-
-        if (key is >= Key.NumPad0 and <= Key.NumPad9)
-        {
-            return null;   // 小键盘数字不和主键盘区混用，避免"看着一样绑不上"
         }
 
         // 其余交给既有归一化（Escape→Esc、Return→Enter 这些别名它都认；F1..F24 也在这里）

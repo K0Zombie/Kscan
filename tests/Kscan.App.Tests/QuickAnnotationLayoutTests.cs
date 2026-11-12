@@ -38,6 +38,15 @@ public sealed class QuickAnnotationLayoutTests
         Assert.Null(QuickAnnotationLayout.TryCreate(new PixelRect(0, 0, width, height), Monitor, Work, 1));
 
     [Fact]
+    public void Eighty_percent_is_inclusive_but_larger_uses_editor()
+    {
+        Assert.NotNull(QuickAnnotationLayout.TryCreate(new PixelRect(0, 0, 1536, 400), Monitor, Work, 1));
+        Assert.Null(QuickAnnotationLayout.TryCreate(new PixelRect(0, 0, 1537, 400), Monitor, Work, 1));
+        Assert.NotNull(QuickAnnotationLayout.TryCreate(new PixelRect(0, 0, 600, 832), Monitor, Work, 1));
+        Assert.Null(QuickAnnotationLayout.TryCreate(new PixelRect(0, 0, 600, 833), Monitor, Work, 1));
+    }
+
+    [Fact]
     public void Cross_monitor_region_and_missing_toolbar_space_use_independent_editor()
     {
         Assert.Null(QuickAnnotationLayout.TryCreate(new PixelRect(-100, 200, 500, 300), Monitor, Work, 1));
